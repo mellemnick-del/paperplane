@@ -1,0 +1,525 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Paper Plane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+/* Layout: one full-screen notebook page; score inked at the top, instructions handwritten at the bottom. Deliberately single light theme: it is a sheet of paper. */
+:root {
+  --paper: #fbf9f1;
+  --rule: #b9cde6;
+  --margin: #e59a9a;
+  --graphite: #33363b;
+  --pencil-lead: #6b6f76;
+  --red-ink: #c8463d;
+  --font-marker: "Permanent Marker", "Comic Sans MS", cursive;
+  --font-hand: "Patrick Hand", "Comic Sans MS", cursive;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--graphite);
+  font-family: var(--font-hand);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { position: relative; height: 100%; }
+#c { display: block; width: 100%; height: 100%; touch-action: none; cursor: pointer; }
+.bottom {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 0 16px calc(26px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  text-align: center; pointer-events: none;
+}
+.eyebrow { font-family: var(--font-marker); font-size: 1.7rem; color: var(--red-ink); min-height: 1.2em; transform: rotate(-3deg); }
+.line { font-size: 1.35rem; line-height: 1.25; max-width: 22ch; text-wrap: balance; }
+.hint { font-size: 1.1rem; color: var(--pencil-lead); }
+.blink { animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .blink { animation: none; } }
+</style>
+
+<div id="app">
+  <canvas id="c" aria-label="Paper Plane game. Hold to climb, let go to dive."></canvas>
+  <div class="bottom" aria-live="polite">
+    <div class="eyebrow" id="eyebrow"></div>
+    <div class="line" id="line"></div>
+    <div class="hint blink" id="hint"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const TAU = Math.PI * 2;
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const C = {};
+  ['paper', 'rule', 'margin', 'graphite', 'pencil-lead', 'red-ink'].forEach(k => C[k] = css.getPropertyValue('--' + k).trim());
+  const MARKER = '"Permanent Marker", "Comic Sans MS", cursive';
+  const PENCILS = [
+    { body: '#f2c230', dark: '#d9a91c' },
+    { body: '#f2c230', dark: '#d9a91c' },
+    { body: '#4f86c6', dark: '#3a6da8' },
+    { body: '#d9534f', dark: '#b8403c' },
+    { body: '#5fae6b', dark: '#478f53' }
+  ];
+
+  const elEyebrow = document.getElementById('eyebrow');
+  const elLine = document.getElementById('line');
+  const elHint = document.getElementById('hint');
+
+  let W = 0, H = 0;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Tuning knobs, in screen heights (H) so it plays the same on any phone
+  const GRAVITY = 1.5;       // H per second squared when you let go
+  const LIFT = 1.75;         // H per second squared when you hold
+  const MAX_UP = 0.62, MAX_DOWN = 0.8;
+  const SPEED = 0.33;        // scroll speed, H per second
+  const SPACING = 0.40;      // distance between pencil pairs, in H
+  const GAP_START = 0.31, GAP_MIN = 0.21;
+  const LIVES = 3;
+
+  let best = 0;
+  try { best = parseInt(localStorage.getItem('paperplane.best'), 10) || 0; } catch (e) {}
+
+  const P = { x: 0, y: 0, vy: 0, angle: 0, hits: 0, inv: 0, spin: 0, creases: [] };
+  let obs = [], doodles = [], trail = [];
+  let state = 'ready', score = 0, holding = false, untilNext = 0, untilDoodle = 0;
+  let worldX = 0, shake = 0, pop = 0, overAt = 0, newBest = false, needRelease = false;
+
+  function pw() { return H * 0.066; }
+
+  function reset() {
+    P.x = W * 0.28; P.y = H * 0.45; P.vy = 0; P.angle = 0;
+    P.hits = 0; P.inv = 0; P.spin = 0; P.creases = [];
+    obs = []; trail = []; score = 0; newBest = false;
+    untilNext = H * 0.55;
+  }
+
+  function currentSpeed() { return SPEED * H * Math.min(1.6, 1 + score * 0.02); }
+
+  function spawnPencil() {
+    const gap = Math.max(GAP_MIN, GAP_START - score * 0.004) * H;
+    const margin = H * 0.12;
+    const center = margin + gap / 2 + Math.random() * (H - 2 * margin - gap);
+    obs.push({
+      x: W + pw(), top: center - gap / 2, bot: center + gap / 2, passed: false,
+      topColor: PENCILS[Math.floor(Math.random() * PENCILS.length)],
+      botColor: PENCILS[Math.floor(Math.random() * PENCILS.length)]
+    });
+  }
+
+  function spawnDoodle(x) {
+    const kinds = ['stain', 'star', 'spiral', 'heart', 'x', 'smiley'];
+    doodles.push({
+      x: x, y: H * (0.12 + Math.random() * 0.76),
+      kind: kinds[Math.floor(Math.random() * kinds.length)],
+      size: H * (0.02 + Math.random() * 0.025),
+      rot: Math.random() * TAU
+    });
+  }
+
+  function seedDoodles() {
+    doodles = [];
+    for (let x = 0; x < W + H * 0.3; x += H * 0.25) spawnDoodle(x + Math.random() * H * 0.15);
+    untilDoodle = H * 0.25;
+  }
+
+  function start() {
+    reset();
+    state = 'play';
+    ui();
+  }
+
+  function crumple(bounceVy) {
+    P.hits++;
+    P.inv = 1.3;
+    P.vy = bounceVy;
+    shake = 1;
+    for (let i = 0; i < 3; i++) P.creases.push([Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5]);
+    sfxCrumple();
+    if (P.hits >= LIVES) gameOver();
+  }
+
+  function gameOver() {
+    state = 'over';
+    overAt = performance.now();
+    P.spin = 7;
+    if (score > best) {
+      best = score; newBest = true;
+      try { localStorage.setItem('paperplane.best', String(best)); } catch (e) {}
+    }
+    needRelease = holding;
+    ui();
+  }
+
+  // Input: hold anywhere to climb
+  function press() {
+    unlockAudio();
+    holding = true;
+    if (state === 'ready') { start(); return; }
+    if (state === 'over' && !needRelease && performance.now() - overAt > 700) start();
+  }
+  function release() { holding = false; needRelease = false; }
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  window.addEventListener('blur', release);
+  window.addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); press(); } });
+  window.addEventListener('keyup', e => { if (e.code === 'Space') release(); });
+
+  function ui() {
+    if (state === 'ready') {
+      elEyebrow.textContent = '';
+      elLine.textContent = 'Hold to climb. Let go to dive.';
+      elHint.textContent = 'Clip a pencil and your wing crumples. Three strikes.';
+      elHint.classList.remove('blink');
+    } else if (state === 'play') {
+      elEyebrow.textContent = ''; elLine.textContent = ''; elHint.textContent = '';
+    } else {
+      elEyebrow.textContent = newBest ? 'New best!' : 'Crumpled!';
+      elLine.textContent = (score === 1 ? '1 pencil' : score + ' pencils') + '   ·   best ' + best;
+      elHint.textContent = 'Tap to fly again';
+      elHint.classList.add('blink');
+    }
+  }
+
+  // Sound
+  let ac = null, noiseBuf = null;
+  function unlockAudio() {
+    if (!ac) {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.4, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.25);
+      } catch (e) { ac = null; }
+    }
+    if (ac && ac.state === 'suspended') ac.resume();
+  }
+  function sfxCrumple() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = noiseBuf;
+    const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2500; f.Q.value = 0.8;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    src.connect(f); f.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t + 0.4);
+  }
+  function sfxScore() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + 0.08);
+    g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t + 0.17);
+  }
+
+  // Collision: circle vs rectangle
+  function hitsRect(cx, cy, r, x0, y0, x1, y1) {
+    const nx = Math.max(x0, Math.min(cx, x1));
+    const ny = Math.max(y0, Math.min(cy, y1));
+    const dx = cx - nx, dy = cy - ny;
+    return dx * dx + dy * dy < r * r;
+  }
+
+  function update(dt, now) {
+    const sp = currentSpeed();
+
+    if (state === 'ready') {
+      P.x = W * 0.28;
+      P.y = H * 0.45 + Math.sin(now / 320) * H * 0.012;
+      P.angle = Math.cos(now / 320) * 0.12;
+    }
+
+    if (state === 'play') {
+      worldX += sp * dt;
+      const lift = LIFT * (1 - 0.12 * P.hits);
+      let acc = (holding ? -lift : GRAVITY) * H;
+      if (P.hits > 0) acc += Math.sin(now / 90) * H * 0.35 * P.hits; // crumpled wings wobble
+      P.vy = Math.max(-MAX_UP * H, Math.min(MAX_DOWN * H, P.vy + acc * dt));
+      P.y += P.vy * dt;
+      P.angle = Math.atan2(P.vy, sp) * 0.8;
+      P.inv = Math.max(0, P.inv - dt);
+
+      untilNext -= sp * dt;
+      if (untilNext <= 0) { spawnPencil(); untilNext += SPACING * H; }
+
+      const r = H * 0.018, w = pw(), tip = w * 1.1;
+      for (const o of obs) {
+        o.x -= sp * dt;
+        if (!o.passed && o.x + w / 2 < P.x) { o.passed = true; score++; pop = 1; sfxScore(); }
+        if (P.inv > 0 || state !== 'play') continue;
+        if (hitsRect(P.x, P.y, r, o.x - w / 2, -H, o.x + w / 2, o.top - tip * 0.35)) crumple(0.4 * H);
+        else if (hitsRect(P.x, P.y, r, o.x - w / 2, o.bot + tip * 0.35, o.x + w / 2, H * 2)) crumple(-0.5 * H);
+      }
+      obs = obs.filter(o => o.x > -w * 2);
+
+      if (state === 'play' && P.inv <= 0) {
+        if (P.y < r) { P.y = r; crumple(0.35 * H); }
+        else if (P.y > H - r) { P.y = H - r; crumple(-0.55 * H); }
+      }
+      P.y = Math.max(-H * 0.1, Math.min(H * 1.1, P.y));
+
+      trail.push([P.x, P.y]);
+      if (trail.length > 40) trail.shift();
+      for (const t of trail) t[0] -= sp * dt;
+    }
+
+    if (state === 'over') {
+      // tumble to the bottom of the page
+      P.vy = Math.min(MAX_DOWN * H, P.vy + GRAVITY * H * dt);
+      P.y = Math.min(H * 1.2, P.y + P.vy * dt);
+      P.angle += P.spin * dt;
+      P.spin *= 0.98;
+    }
+
+    if (state !== 'over') {
+      for (const d of doodles) d.x -= (state === 'play' ? sp : sp * 0.35) * dt;
+      untilDoodle -= (state === 'play' ? sp : sp * 0.35) * dt;
+      if (untilDoodle <= 0) { spawnDoodle(W + H * 0.1); untilDoodle += H * (0.2 + Math.random() * 0.15); }
+      doodles = doodles.filter(d => d.x > -H * 0.2);
+      if (state === 'ready') worldX += sp * 0.35 * dt;
+    }
+
+    shake = Math.max(0, shake - dt * 3);
+    pop = Math.max(0, pop - dt * 4);
+  }
+
+  // Drawing
+  function drawPaper() {
+    ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+    const step = H * 0.042;
+    for (let y = H * 0.14; y < H; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); ctx.stroke();
+    }
+    // margin line repeats every page
+    const page = W * 2.4;
+    const mx = W * 0.12 - (worldX % page);
+    ctx.strokeStyle = C.margin; ctx.lineWidth = 1.5;
+    for (let x = mx; x < W; x += page) {
+      if (x < -2) continue;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    // punched holes along the top binding
+    ctx.fillStyle = '#e4dfcf';
+    const hs = Math.max(34, W / 10);
+    for (let x = hs / 2; x < W; x += hs) {
+      ctx.beginPath(); ctx.arc(x, H * 0.028, H * 0.009, 0, TAU); ctx.fill();
+    }
+  }
+
+  function drawDoodle(d) {
+    ctx.save();
+    ctx.translate(d.x, d.y); ctx.rotate(d.rot);
+    const s = d.size;
+    ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = C['pencil-lead']; ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    if (d.kind === 'stain') {
+      ctx.globalAlpha = 0.18; ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = s * 0.25;
+      ctx.arc(0, 0, s * 2.2, 0, TAU * 0.9);
+    } else if (d.kind === 'star') {
+      for (let i = 0; i < 5; i++) {
+        const a = i * TAU * 2 / 5 - Math.PI / 2;
+        ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * s, Math.sin(a) * s);
+      }
+      ctx.closePath();
+    } else if (d.kind === 'spiral') {
+      for (let a = 0; a < TAU * 3; a += 0.2) {
+        const rr = s * a / (TAU * 3);
+        ctx[a ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+    } else if (d.kind === 'heart') {
+      ctx.moveTo(0, s * 0.8);
+      ctx.bezierCurveTo(-s * 1.4, -s * 0.2, -s * 0.5, -s * 1.1, 0, -s * 0.3);
+      ctx.bezierCurveTo(s * 0.5, -s * 1.1, s * 1.4, -s * 0.2, 0, s * 0.8);
+    } else if (d.kind === 'x') {
+      ctx.moveTo(-s * 0.6, -s * 0.6); ctx.lineTo(s * 0.6, s * 0.6);
+      ctx.moveTo(s * 0.6, -s * 0.6); ctx.lineTo(-s * 0.6, s * 0.6);
+    } else {
+      ctx.arc(0, 0, s, 0, TAU);
+      ctx.moveTo(-s * 0.35, -s * 0.2); ctx.arc(-s * 0.35, -s * 0.25, 0.5, 0, TAU);
+      ctx.moveTo(s * 0.35, -s * 0.2); ctx.arc(s * 0.35, -s * 0.25, 0.5, 0, TAU);
+      ctx.moveTo(-s * 0.5, s * 0.2); ctx.quadraticCurveTo(0, s * 0.7, s * 0.5, s * 0.2);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // A pencil standing in from the top (dir = 1, tip points down) or bottom (dir = -1, tip points up)
+  function drawPencil(x, tipY, dir, color) {
+    const w = pw(), tip = w * 1.1, lead = tip * 0.32;
+    const baseY = tipY - dir * tip;           // where the sharpened cone meets the body
+    const farY = dir === 1 ? -10 : H + 10;    // off screen
+    const x0 = x - w / 2, x1 = x + w / 2;
+    ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.strokeStyle = C.graphite;
+
+    // body
+    ctx.fillStyle = color.body;
+    ctx.fillRect(x0, Math.min(farY, baseY), w, Math.abs(baseY - farY));
+    ctx.fillStyle = color.dark;
+    ctx.fillRect(x0 + w * 0.36, Math.min(farY, baseY), w * 0.28, Math.abs(baseY - farY));
+    ctx.beginPath();
+    ctx.moveTo(x0, farY); ctx.lineTo(x0, baseY);
+    ctx.moveTo(x1, farY); ctx.lineTo(x1, baseY);
+    ctx.stroke();
+
+    // sharpened wood cone
+    ctx.fillStyle = '#f0d3a6';
+    ctx.beginPath();
+    ctx.moveTo(x0, baseY);
+    ctx.lineTo(x - w * 0.14, tipY - dir * lead);
+    ctx.lineTo(x + w * 0.14, tipY - dir * lead);
+    ctx.lineTo(x1, baseY);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // graphite tip
+    ctx.fillStyle = C.graphite;
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.14, tipY - dir * lead);
+    ctx.lineTo(x, tipY);
+    ctx.lineTo(x + w * 0.14, tipY - dir * lead);
+    ctx.closePath(); ctx.fill();
+
+    // scalloped edge where paint meets wood
+    ctx.fillStyle = color.body;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const cxp = x0 + w * (i + 0.5) / 3;
+      ctx.moveTo(cxp - w / 6, baseY);
+      ctx.quadraticCurveTo(cxp, baseY + dir * w * 0.22, cxp + w / 6, baseY);
+    }
+    ctx.fill(); ctx.stroke();
+  }
+
+  function drawTrail() {
+    if (trail.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = C['pencil-lead']; ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 7]); ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    trail.forEach((t, i) => ctx[i ? 'lineTo' : 'moveTo'](t[0] - H * 0.03, t[1]));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlane() {
+    const L = H * 0.036;
+    if (P.inv > 0 && state === 'play' && Math.floor(P.inv * 10) % 2 === 0) return; // blink while recovering
+    ctx.save();
+    ctx.translate(P.x, P.y); ctx.rotate(P.angle);
+    const j = (v, i) => v + (P.creases[i] ? P.creases[i][0] * L * 0.18 : 0);
+    ctx.lineWidth = 1.8; ctx.lineJoin = 'round';
+    ctx.strokeStyle = C.graphite;
+
+    // far wing
+    ctx.fillStyle = '#e2e2dc';
+    ctx.beginPath();
+    ctx.moveTo(L, 0);
+    ctx.lineTo(j(-L, 0), j(-L * 0.55, 1));
+    ctx.lineTo(-L * 0.55, -L * 0.05);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // near wing
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(L, 0);
+    ctx.lineTo(j(-L * 0.9, 2), j(-L * 0.12, 3));
+    ctx.lineTo(j(-L * 0.75, 4), j(L * 0.38, 5));
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // keel fold
+    ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(-L * 0.6, L * 0.12); ctx.stroke();
+
+    // crease lines from each crumple
+    ctx.lineWidth = 1; ctx.strokeStyle = C['pencil-lead'];
+    for (const c of P.creases) {
+      ctx.beginPath();
+      ctx.moveTo(c[0] * L * 1.2, c[1] * L * 0.5);
+      ctx.lineTo(c[2] * L * 1.2, c[3] * L * 0.5 + L * 0.05);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawHud() {
+    if (state === 'ready') return;
+    const s = 1 + pop * 0.25;
+    ctx.save();
+    ctx.translate(W / 2, H * 0.1); ctx.scale(s, s); ctx.rotate(-0.04);
+    ctx.fillStyle = C.graphite;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = Math.round(H * 0.065) + 'px ' + MARKER;
+    ctx.fillText(String(score), 0, 0);
+    ctx.restore();
+
+    // wings left, drawn as tally marks in a corner
+    const size = H * 0.02;
+    for (let i = 0; i < LIVES; i++) {
+      const x = 16 + size + i * size * 2.6, y = H * 0.1;
+      const lost = i >= LIVES - P.hits;
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(-0.2);
+      ctx.globalAlpha = lost ? 0.25 : 0.9;
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = C.graphite; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(size, 0); ctx.lineTo(-size, -size * 0.5); ctx.lineTo(-size * 0.6, size * 0.4);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      if (lost) {
+        ctx.strokeStyle = C['red-ink']; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x - size, y - size * 0.7); ctx.lineTo(x + size, y + size * 0.7); ctx.stroke();
+      }
+    }
+  }
+
+  function draw() {
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake * H * 0.015, (Math.random() - 0.5) * shake * H * 0.015);
+    drawPaper();
+    for (const d of doodles) drawDoodle(d);
+    for (const o of obs) {
+      drawPencil(o.x, o.top, 1, o.topColor);
+      drawPencil(o.x, o.bot, -1, o.botColor);
+    }
+    drawTrail();
+    drawPlane();
+    ctx.restore();
+    drawHud();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.04, Math.max(0, (now - last) / 1000));
+    last = now;
+    update(dt, now);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  reset();
+  seedDoodles();
+  ui();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
