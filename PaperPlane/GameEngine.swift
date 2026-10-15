@@ -39,10 +39,11 @@ final class GameEngine {
     // Tuning knobs, in screen heights (H)
     static let gravity = 1.5        // H/s² when you let go
     static let lift = 1.75          // H/s² when you hold
-    static let maxUp = 0.62, maxDown = 0.8
+    static let maxUp = 0.68, maxDown = 0.8
+    static let turnBoost = 1.4      // extra push while reversing direction, for snappy turns
     static let speed = 0.33         // scroll speed, H/s
-    static let spacing = 0.40       // distance between pencil pairs, H
-    static let gapStart = 0.32, gapMin = 0.22
+    static let spacing = 0.42       // distance between pencil pairs, H
+    static let gapStart = 0.33, gapMin = 0.23
     static let gapShrink = 0.003    // H narrower per point
     static let maxGapShift = 0.22   // next gap's center stays within this of the last one
     static let speedRamp = 0.015    // faster per point...
@@ -238,6 +239,9 @@ final class GameEngine {
             worldX += sp * dt
             let lift = Self.lift * (1 - Self.liftLossPerHit * Double(plane.hits))
             var acc = (holding ? -lift : Self.gravity) * H
+            // Agility: pressing while falling, or letting go while climbing, turns the plane
+            // around faster instead of slowly bleeding off the old speed first.
+            if (holding && plane.vy > 0) || (!holding && plane.vy < 0) { acc *= Self.turnBoost }
             if plane.hits > 0 {
                 acc += sin(clock / 0.09) * H * Self.wobblePerHit * Double(plane.hits) // crumpled wings wobble
             }

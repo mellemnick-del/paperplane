@@ -85,10 +85,11 @@ body {
   // Tuning knobs, in screen heights (H) so it plays the same on any phone
   const GRAVITY = 1.5;       // H per second squared when you let go
   const LIFT = 1.75;         // H per second squared when you hold
-  const MAX_UP = 0.62, MAX_DOWN = 0.8;
+  const MAX_UP = 0.68, MAX_DOWN = 0.8;
+  const TURN_BOOST = 1.4;    // extra push while reversing direction, for snappy turns
   const SPEED = 0.33;        // scroll speed, H per second
-  const SPACING = 0.40;      // distance between pencil pairs, in H
-  const GAP_START = 0.32, GAP_MIN = 0.22;
+  const SPACING = 0.42;      // distance between pencil pairs, in H
+  const GAP_START = 0.33, GAP_MIN = 0.23;
   const GAP_SHRINK = 0.003;   // H narrower per point
   const MAX_GAP_SHIFT = 0.22; // next gap's center stays within this of the last one
   const SPEED_RAMP = 0.015, SPEED_CAP = 1.5;
@@ -265,6 +266,8 @@ body {
       worldX += sp * dt;
       const lift = LIFT * (1 - LIFT_LOSS_PER_HIT * P.hits);
       let acc = (holding ? -lift : GRAVITY) * H;
+      // Agility: reversing direction turns the plane around faster
+      if ((holding && P.vy > 0) || (!holding && P.vy < 0)) acc *= TURN_BOOST;
       if (P.hits > 0) acc += Math.sin(now / 90) * H * WOBBLE_PER_HIT * P.hits; // crumpled wings wobble
       P.vy = Math.max(-MAX_UP * H, Math.min(MAX_DOWN * H, P.vy + acc * dt));
       P.y += P.vy * dt;
