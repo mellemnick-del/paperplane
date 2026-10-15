@@ -212,7 +212,7 @@ body {
   }
 
   // Sound
-  let ac = null, noiseBuf = null;
+  let ac = null, noiseBuf = null, checkBuf = null;
   function unlockAudio() {
     if (!ac) {
       try {
@@ -220,6 +220,7 @@ body {
         noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.4, ac.sampleRate);
         const d = noiseBuf.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.25);
+        checkBuf = makeCheckMark(ac);
       } catch (e) { ac = null; }
     }
     if (ac && ac.state === 'suspended') ac.resume();
@@ -234,15 +235,34 @@ body {
     src.connect(f); f.connect(g); g.connect(ac.destination);
     src.start(t); src.stop(t + 0.4);
   }
+  // A pencil check mark: two quick graphite scratches, a short down-stroke then a longer
+  // up-stroke. Grainy noise through a band-pass filter that sweeps up.
+  function makeCheckMark(ac) {
+    const rate = ac.sampleRate;
+    function stroke(seconds, f0, f1) {
+      const n = Math.floor(rate * seconds), out = new Float32Array(n);
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < n; i++) {
+        const p = i / Math.max(n - 1, 1);
+        const w0 = 2 * Math.PI * (f0 + (f1 - f0) * p) / rate, alpha = Math.sin(w0) / (2 * 1.4), a0 = 1 + alpha;
+        const x = (Math.random() * 2 - 1) * (Math.random() < 0.35 ? 1 : 0.3);
+        const y = (alpha * x - alpha * x2 + 2 * Math.cos(w0) * y1 - (1 - alpha) * y2) / a0;
+        x2 = x1; x1 = x; y2 = y1; y1 = y;
+        out[i] = y * Math.pow(Math.sin(Math.PI * p), 0.6);
+      }
+      return out;
+    }
+    const a = stroke(0.035, 3200, 3800), gap = Math.floor(rate * 0.025), b = stroke(0.075, 3600, 6200);
+    const buf = ac.createBuffer(1, a.length + gap + b.length, rate), d = buf.getChannelData(0);
+    d.set(a, 0); d.set(b, a.length + gap);
+    let peak = 1e-9; for (const v of d) peak = Math.max(peak, Math.abs(v));
+    for (let i = 0; i < d.length; i++) d[i] = d[i] / peak * 0.164;
+    return buf;
+  }
   function sfxScore() {
-    if (!ac) return;
-    const t = ac.currentTime;
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + 0.08);
-    g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-    o.connect(g); g.connect(ac.destination);
-    o.start(t); o.stop(t + 0.17);
+    if (!ac || !checkBuf) return;
+    const src = ac.createBufferSource(); src.buffer = checkBuf;
+    src.connect(ac.destination); src.start();
   }
 
   // Collision: circle vs rectangle

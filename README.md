@@ -15,7 +15,7 @@ Three strikes and you're out.
 | `GameEngine.swift` | All game rules, ported from the prototype's `update()`. `step(to:size:)` runs once per frame. |
 | `GameRenderer.swift` | Draws a frame into the SwiftUI `Canvas`, ported from the prototype's drawing functions. Also the color palette. |
 | `ContentView.swift` | `TimelineView(.animation)` + `Canvas`, the hold gesture, and the handwritten captions. |
-| `SoundFX.swift` | Crumple and chirp sounds, generated in code at launch (no audio files). |
+| `SoundFX.swift` | Crumple and pencil check mark sounds, generated in code at launch (no audio files). |
 | `Haptics.swift` | Light tap per point, heavy thump per crumple. |
 
 ## Fonts

@@ -55,7 +55,7 @@ struct ContentView: View {
         let sound = self.sound
         let haptics = self.haptics
         game.onScore = {
-            sound.chirp()
+            sound.point()
             haptics.point()
         }
         game.onCrumple = {
