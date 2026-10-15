@@ -12,7 +12,10 @@ or its repo (mellemnick-del/Tick).
 
 ## Tech rules
 - SwiftUI, iOS 17+, status bar hidden. No third-party libraries.
-- iPhone: portrait only. iPad: all orientations and resizable windows. The engine rescales the
+- Orientation: Info.plist allows all; `AppDelegate` narrows it at run time. Regular iPhones are
+  portrait only; screens whose short side is 600+ points (opened foldable iPhones) and iPads
+  get every orientation, so the page fills the screen instead of being letterboxed.
+  iPad: resizable windows too. The engine rescales the
   world when the screen size changes (`rescale`). Line widths and caption text scale by
   `k = max(1, H / 956)`, so every iPhone is unchanged and iPads get thicker strokes.
 - The spacebar works like a finger (iPad and Mac keyboards), handled in `TouchSurface`.

@@ -3,6 +3,8 @@ import CoreText
 
 @main
 struct PaperPlaneApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         Self.registerFontsIfNeeded()
     }

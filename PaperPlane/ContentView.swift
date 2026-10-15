@@ -28,6 +28,7 @@ struct ContentView: View {
             }
             .onChange(of: full, initial: true) { _, size in
                 game.viewSize = size
+                AppDelegate.refreshOrientations() // a foldable may have just opened or closed
             }
         }
         .background(Palette.paper.ignoresSafeArea())
