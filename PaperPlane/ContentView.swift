@@ -74,9 +74,11 @@ private struct Caption: View {
     let time: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let eyebrowSize = 27.2   // 1.7rem
-    private let lineSize = 21.6      // 1.35rem
-    private let hintSize = 17.6      // 1.1rem
+    /// 1 on every iPhone, larger on iPads (same scale as the renderer's lines).
+    private var k: Double { max(1, game.H / 956) }
+    private var eyebrowSize: Double { 27.2 * k }   // 1.7rem
+    private var lineSize: Double { 21.6 * k }      // 1.35rem
+    private var hintSize: Double { 17.6 * k }      // 1.1rem
 
     var body: some View {
         VStack(spacing: 2) {

@@ -11,7 +11,11 @@ or its repo (mellemnick-del/Tick).
   Do not change tuning numbers unless Nick asks.
 
 ## Tech rules
-- SwiftUI, iOS 17+, iPhone only, portrait, status bar hidden. No third-party libraries.
+- SwiftUI, iOS 17+, status bar hidden. No third-party libraries.
+- iPhone: portrait only. iPad: all orientations and resizable windows. The engine rescales the
+  world when the screen size changes (`rescale`). Line widths and caption text scale by
+  `k = max(1, H / 956)`, so every iPhone is unchanged and iPads get thicker strokes.
+- The spacebar works like a finger (iPad and Mac keyboards), handled in `TouchSurface`.
 - Everything is drawn in one SwiftUI `Canvas`. Game rules live in the plain Swift class
   `GameEngine`; `FrameClock` (a CADisplayLink) calls `step(to:)` once per display frame and
   then bumps a published counter so SwiftUI redraws.

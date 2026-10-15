@@ -106,8 +106,12 @@ final class GameEngine {
 
     func step(to time: Double, size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
-        W = Double(size.width)
-        H = Double(size.height)
+        let newW = Double(size.width), newH = Double(size.height)
+        if configured && (newW != W || newH != H) {
+            rescale(toWidth: newW, height: newH)
+        }
+        W = newW
+        H = newH
         if !configured {
             configured = true
             reset()
@@ -117,6 +121,36 @@ final class GameEngine {
         lastTime = time
         clock += dt
         update(dt)
+    }
+
+    /// The screen changed size mid-game (an iPad rotated or its window was resized).
+    /// Everything is measured in screen heights, so scale the whole world to the new height
+    /// and keep the plane at 28% of the new width.
+    private func rescale(toWidth newW: Double, height newH: Double) {
+        guard H > 0 else { return }
+        let f = newH / H
+        let oldX = plane.x, newX = newW * 0.28
+        plane.x = newX
+        plane.y *= f
+        plane.vy *= f
+        for i in pencils.indices {
+            pencils[i].x = newX + (pencils[i].x - oldX) * f
+            pencils[i].top *= f
+            pencils[i].bot *= f
+        }
+        for i in doodles.indices {
+            doodles[i].x *= f
+            doodles[i].y *= f
+            doodles[i].size *= f
+        }
+        for i in trail.indices {
+            trail[i].x = newX + (trail[i].x - oldX) * f
+            trail[i].y *= f
+        }
+        worldX *= f
+        untilNext *= f
+        untilDoodle *= f
+        lastGapCenter = lastGapCenter.map { $0 * f }
     }
 
     // MARK: Input

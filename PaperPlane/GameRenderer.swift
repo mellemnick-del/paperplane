@@ -45,6 +45,8 @@ struct GameRenderer {
 
     private var W: Double { game.W }
     private var H: Double { game.H }
+    /// Line and text scale: 1 on every iPhone, larger on iPads so strokes don't look hairline thin.
+    private var k: Double { max(1, H / 956) }
     private var tau: Double { .pi * 2 }
 
     static func draw(_ game: GameEngine, in ctx: GraphicsContext) {
@@ -88,7 +90,7 @@ struct GameRenderer {
         dashed.move(to: CGPoint(x: x - 40, y: y))
         dashed.addLine(to: CGPoint(x: x, y: y + 10))
         dashed.addLine(to: CGPoint(x: x + 40, y: y))
-        ctx.stroke(dashed, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
+        ctx.stroke(dashed, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5 * k, dash: [5 * k, 7 * k]))
 
         var lines = Path()
         lines.move(to: CGPoint(x: x - 20, y: y - 20))
@@ -97,8 +99,8 @@ struct GameRenderer {
         lines.closeSubpath()
         ctx.fill(lines, with: .color(.white))
         for width in [1.0, 1.4, 1.8, 2.0] {
-            ctx.stroke(lines, with: .color(Palette.redInk), lineWidth: width)
-            ctx.stroke(lines, with: .color(Palette.graphite), style: StrokeStyle(lineWidth: width, lineJoin: .round))
+            ctx.stroke(lines, with: .color(Palette.redInk), lineWidth: width * k)
+            ctx.stroke(lines, with: .color(Palette.graphite), style: StrokeStyle(lineWidth: width * k, lineJoin: .round))
         }
 
         let label = Text("0123456789")
@@ -121,7 +123,7 @@ struct GameRenderer {
             rules.addLine(to: CGPoint(x: W, y: y + 0.5))
             y += step
         }
-        ctx.stroke(rules, with: .color(Palette.rule), lineWidth: 1)
+        ctx.stroke(rules, with: .color(Palette.rule), lineWidth: 1 * k)
 
         // margin line repeats every page
         let page = W * 2.4
@@ -134,11 +136,11 @@ struct GameRenderer {
             }
             x += page
         }
-        ctx.stroke(margin, with: .color(Palette.margin), lineWidth: 1.5)
+        ctx.stroke(margin, with: .color(Palette.margin), lineWidth: 1.5 * k)
 
         // punched holes along the top binding
         var holes = Path()
-        let hs = max(34, W / 10), r = H * 0.009
+        let hs = max(34 * k, W / 10), r = H * 0.009
         var hx = hs / 2
         while hx < W {
             holes.addEllipse(in: CGRect(x: hx - r, y: H * 0.028 - r, width: r * 2, height: r * 2))
@@ -153,7 +155,7 @@ struct GameRenderer {
         ctx.rotate(by: .radians(d.rot))
         let s = d.size
         var color = Palette.pencilLead
-        var lineWidth = 1.6
+        var lineWidth = 1.6 * k
         ctx.opacity = 0.45
 
         var p = Path()
@@ -209,7 +211,7 @@ struct GameRenderer {
         let baseY = tipY - dir * tip              // where the sharpened cone meets the body
         let farY = dir == 1 ? -H * 0.1 : H * 1.1  // off screen, past any shake
         let x0 = x - w / 2, x1 = x + w / 2
-        let outline = StrokeStyle(lineWidth: 2, lineJoin: .round)
+        let outline = StrokeStyle(lineWidth: 2 * k, lineJoin: .round)
         let ink = GraphicsContext.Shading.color(Palette.graphite)
 
         // body
@@ -261,7 +263,7 @@ struct GameRenderer {
             let pt = CGPoint(x: t.x - H * 0.03, y: t.y)
             if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
         }
-        ctx.stroke(p, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
+        ctx.stroke(p, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5 * k, dash: [5 * k, 7 * k]))
     }
 
     private func drawPlane(_ base: GraphicsContext) {
@@ -276,7 +278,7 @@ struct GameRenderer {
         func j(_ v: Double, _ i: Int) -> Double {
             i < P.creases.count ? v + P.creases[i][0] * L * 0.18 : v
         }
-        let outline = StrokeStyle(lineWidth: 1.8, lineJoin: .round)
+        let outline = StrokeStyle(lineWidth: 1.8 * k, lineJoin: .round)
         let ink = GraphicsContext.Shading.color(Palette.graphite)
 
         // far wing
@@ -309,7 +311,7 @@ struct GameRenderer {
             creases.move(to: CGPoint(x: c[0] * L * 1.2, y: c[1] * L * 0.5))
             creases.addLine(to: CGPoint(x: c[2] * L * 1.2, y: c[3] * L * 0.5 + L * 0.05))
         }
-        ctx.stroke(creases, with: .color(Palette.pencilLead), lineWidth: 1)
+        ctx.stroke(creases, with: .color(Palette.pencilLead), lineWidth: 1 * k)
     }
 
     // MARK: HUD
@@ -343,12 +345,12 @@ struct GameRenderer {
             p.addLine(to: CGPoint(x: -size * 0.6, y: size * 0.4))
             p.closeSubpath()
             icon.fill(p, with: .color(.white))
-            icon.stroke(p, with: .color(Palette.graphite), lineWidth: 1.4)
+            icon.stroke(p, with: .color(Palette.graphite), lineWidth: 1.4 * k)
             if lost {
                 var slash = Path()
                 slash.move(to: CGPoint(x: x - size, y: y - size * 0.7))
                 slash.addLine(to: CGPoint(x: x + size, y: y + size * 0.7))
-                base.stroke(slash, with: .color(Palette.redInk), lineWidth: 2)
+                base.stroke(slash, with: .color(Palette.redInk), lineWidth: 2 * k)
             }
         }
     }

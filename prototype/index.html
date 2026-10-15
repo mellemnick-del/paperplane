@@ -72,12 +72,15 @@ body {
   const elLine = document.getElementById('line');
   const elHint = document.getElementById('hint');
 
-  let W = 0, H = 0;
+  let W = 0, H = 0, K = 1;
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     W = cv.clientWidth; H = cv.clientHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Line and text scale: 1 on phones, larger on tablet-sized screens (matches the app)
+    K = Math.max(1, H / 956);
+    document.documentElement.style.fontSize = (16 * K) + 'px';
   }
   window.addEventListener('resize', resize);
   resize();
@@ -341,7 +344,7 @@ body {
   // Drawing
   function drawPaper() {
     ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+    ctx.strokeStyle = C.rule; ctx.lineWidth = 1 * K;
     const step = H * 0.042;
     for (let y = H * 0.14; y < H; y += step) {
       ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); ctx.stroke();
@@ -349,14 +352,14 @@ body {
     // margin line repeats every page
     const page = W * 2.4;
     const mx = W * 0.12 - (worldX % page);
-    ctx.strokeStyle = C.margin; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = C.margin; ctx.lineWidth = 1.5 * K;
     for (let x = mx; x < W; x += page) {
       if (x < -2) continue;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
     }
     // punched holes along the top binding
     ctx.fillStyle = '#e4dfcf';
-    const hs = Math.max(34, W / 10);
+    const hs = Math.max(34 * K, W / 10);
     for (let x = hs / 2; x < W; x += hs) {
       ctx.beginPath(); ctx.arc(x, H * 0.028, H * 0.009, 0, TAU); ctx.fill();
     }
@@ -366,7 +369,7 @@ body {
     ctx.save();
     ctx.translate(d.x, d.y); ctx.rotate(d.rot);
     const s = d.size;
-    ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = 1.6 * K; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.strokeStyle = C['pencil-lead']; ctx.globalAlpha = 0.45;
     ctx.beginPath();
     if (d.kind === 'stain') {
@@ -406,7 +409,7 @@ body {
     const baseY = tipY - dir * tip;           // where the sharpened cone meets the body
     const farY = dir === 1 ? -10 : H + 10;    // off screen
     const x0 = x - w / 2, x1 = x + w / 2;
-    ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.lineWidth = 2 * K; ctx.lineJoin = 'round';
     ctx.strokeStyle = C.graphite;
 
     // body
@@ -450,8 +453,8 @@ body {
   function drawTrail() {
     if (trail.length < 2) return;
     ctx.save();
-    ctx.strokeStyle = C['pencil-lead']; ctx.lineWidth = 1.5;
-    ctx.setLineDash([5, 7]); ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = C['pencil-lead']; ctx.lineWidth = 1.5 * K;
+    ctx.setLineDash([5 * K, 7 * K]); ctx.globalAlpha = 0.55;
     ctx.beginPath();
     trail.forEach((t, i) => ctx[i ? 'lineTo' : 'moveTo'](t[0] - H * 0.03, t[1]));
     ctx.stroke();
@@ -464,7 +467,7 @@ body {
     ctx.save();
     ctx.translate(P.x, P.y); ctx.rotate(P.angle);
     const j = (v, i) => v + (P.creases[i] ? P.creases[i][0] * L * 0.18 : 0);
-    ctx.lineWidth = 1.8; ctx.lineJoin = 'round';
+    ctx.lineWidth = 1.8 * K; ctx.lineJoin = 'round';
     ctx.strokeStyle = C.graphite;
 
     // far wing
@@ -487,7 +490,7 @@ body {
     ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(-L * 0.6, L * 0.12); ctx.stroke();
 
     // crease lines from each crumple
-    ctx.lineWidth = 1; ctx.strokeStyle = C['pencil-lead'];
+    ctx.lineWidth = 1 * K; ctx.strokeStyle = C['pencil-lead'];
     for (const c of P.creases) {
       ctx.beginPath();
       ctx.moveTo(c[0] * L * 1.2, c[1] * L * 0.5);
@@ -516,13 +519,13 @@ body {
       ctx.save();
       ctx.translate(x, y); ctx.rotate(-0.2);
       ctx.globalAlpha = lost ? 0.25 : 0.9;
-      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = C.graphite; ctx.lineWidth = 1.4;
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = C.graphite; ctx.lineWidth = 1.4 * K;
       ctx.beginPath();
       ctx.moveTo(size, 0); ctx.lineTo(-size, -size * 0.5); ctx.lineTo(-size * 0.6, size * 0.4);
       ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
       if (lost) {
-        ctx.strokeStyle = C['red-ink']; ctx.lineWidth = 2;
+        ctx.strokeStyle = C['red-ink']; ctx.lineWidth = 2 * K;
         ctx.beginPath(); ctx.moveTo(x - size, y - size * 0.7); ctx.lineTo(x + size, y + size * 0.7); ctx.stroke();
       }
     }

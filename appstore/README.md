@@ -70,13 +70,17 @@ airplane,glider,arcade,one tap,casual,pencil,doodle,fly,offline,endless,sketch,o
 
 ## Screenshots
 
-Upload the four files in `appstore/screenshots/`, in order, to the **6.9" Display** slot
-(1320 x 2868). Apple scales them down for smaller iPhones, so this one size is enough.
+Two sets, same four scenes, in this order:
 
 1. `1-hold-to-climb.png`
 2. `2-crumple-a-wing.png`
 3. `3-beat-your-best.png`
 4. `4-endless-pencils.png`
+
+- `appstore/screenshots/iphone/` goes in the **iPhone 6.9" Display** slot (1320 x 2868).
+- `appstore/screenshots/ipad/` goes in the **iPad 13" Display** slot (2064 x 2752).
+
+Apple scales each set down for the smaller iPhones and iPads, so these two sizes are enough.
 
 ## App Privacy
 
