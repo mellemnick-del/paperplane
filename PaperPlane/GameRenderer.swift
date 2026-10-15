@@ -70,6 +70,41 @@ struct GameRenderer {
         drawTrail(world)
         drawPlane(world)
         drawHud(ctx)
+        if game.state == .ready { warmUp(ctx) }
+    }
+
+    /// iOS builds the GPU pipeline for each new kind of stroke the first time it is drawn,
+    /// which froze the game for about half a second mid-flight ("building pipeline
+    /// stroke_joins ... took 0.55 seconds"). On the start screen, draw everything the game
+    /// will need at an invisible opacity so that work happens before takeoff.
+    private func warmUp(_ base: GraphicsContext) {
+        var ctx = base
+        ctx.opacity = 0.01
+        let x = W * 0.8, y = H * 0.5
+        drawPencil(x, tipY: y - H * 0.15, dir: 1, color: Palette.pencils[0], ctx)
+        drawPencil(x, tipY: y + H * 0.15, dir: -1, color: Palette.pencils[2], ctx)
+
+        var dashed = Path()
+        dashed.move(to: CGPoint(x: x - 40, y: y))
+        dashed.addLine(to: CGPoint(x: x, y: y + 10))
+        dashed.addLine(to: CGPoint(x: x + 40, y: y))
+        ctx.stroke(dashed, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5, dash: [5, 7]))
+
+        var lines = Path()
+        lines.move(to: CGPoint(x: x - 20, y: y - 20))
+        lines.addLine(to: CGPoint(x: x + 20, y: y + 20))
+        lines.addLine(to: CGPoint(x: x + 30, y: y))
+        lines.closeSubpath()
+        ctx.fill(lines, with: .color(.white))
+        for width in [1.0, 1.4, 1.8, 2.0] {
+            ctx.stroke(lines, with: .color(Palette.redInk), lineWidth: width)
+            ctx.stroke(lines, with: .color(Palette.graphite), style: StrokeStyle(lineWidth: width, lineJoin: .round))
+        }
+
+        let label = Text("0123456789")
+            .font(.custom(AppFont.marker, fixedSize: (H * 0.065).rounded()))
+            .foregroundColor(Palette.graphite)
+        ctx.draw(label, at: CGPoint(x: W / 2, y: H * 0.1), anchor: .center)
     }
 
     // MARK: Paper

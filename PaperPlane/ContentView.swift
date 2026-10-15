@@ -4,7 +4,6 @@ struct ContentView: View {
     @State private var game = GameEngine()
     @State private var sound = SoundFX()
     @State private var haptics = Haptics()
-    @State private var holding = false
     @StateObject private var clock = FrameClock()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -21,8 +20,6 @@ struct ContentView: View {
                     GameRenderer.draw(game, in: ctx)
                 }
                 .ignoresSafeArea()
-                .accessibilityLabel("Paper Plane game. Hold to climb, let go to dive.")
-                .accessibilityAddTraits(.allowsDirectInteraction)
 
                 Caption(game: game, time: game.clock)
                     .padding(.horizontal, 16)
@@ -33,34 +30,24 @@ struct ContentView: View {
                 game.viewSize = size
             }
         }
-        // The paper background extends under the safe areas, so the whole screen is touchable.
         .background(Palette.paper.ignoresSafeArea())
-        .contentShape(Rectangle())
-        .gesture(holdGesture)
+        // Hold anywhere to climb, let go to dive. Covers the whole screen, edges included.
+        .overlay(
+            TouchSurface(onDown: { game.press() }, onUp: { game.release() })
+                .ignoresSafeArea()
+        )
         .statusBarHidden(true)
+        // Ask iOS to let the game have the first swipe at the screen edges, so a thumb
+        // near the home bar or the top does not get stolen by a system gesture mid-flight.
+        .defersSystemGestures(on: .all)
         .onAppear(perform: wire)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 sound.start()
             } else {
-                holding = false
                 game.release()
             }
         }
-    }
-
-    /// Hold anywhere to climb: onChanged = finger down, onEnded = finger up.
-    private var holdGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { _ in
-                guard !holding else { return }
-                holding = true
-                game.press()
-            }
-            .onEnded { _ in
-                holding = false
-                game.release()
-            }
     }
 
     private func wire() {

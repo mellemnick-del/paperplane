@@ -17,7 +17,13 @@ or its repo (mellemnick-del/Tick).
   then bumps a published counter so SwiftUI redraws.
 - Do not go back to `TimelineView(.animation)` for the game loop. On Nick's iPhone it did not
   tick: the game only advanced when a touch changed view state (seen in a screen recording).
-- Input is `DragGesture(minimumDistance: 0)`: onChanged = finger down, onEnded = finger up.
+- Input is `TouchSurface`, a UIKit view: any finger down = hold, all fingers up = let go.
+  Do not go back to a SwiftUI DragGesture: it never reports touches iOS cancels, so the game
+  thought the finger was still down and ignored new touches. Keep `.defersSystemGestures`,
+  otherwise iOS's system gesture gate delays or drops touches near the screen edges.
+- The renderer draws every stroke style invisibly on the start screen (`warmUp`), because
+  iOS builds each GPU pipeline on first use and that froze play for ~0.5 s. Anything new
+  drawn during play should be added there too.
 - Xcode project uses folder sync (objectVersion 77): files added under `PaperPlane/` are
   included automatically. Do not add files to the project by hand. `Info.plist` is excluded
   from the target's resources by an exception set; keep it that way.
