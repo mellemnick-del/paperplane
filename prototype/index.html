@@ -88,7 +88,12 @@ body {
   const MAX_UP = 0.62, MAX_DOWN = 0.8;
   const SPEED = 0.33;        // scroll speed, H per second
   const SPACING = 0.40;      // distance between pencil pairs, in H
-  const GAP_START = 0.31, GAP_MIN = 0.21;
+  const GAP_START = 0.32, GAP_MIN = 0.22;
+  const GAP_SHRINK = 0.003;   // H narrower per point
+  const MAX_GAP_SHIFT = 0.22; // next gap's center stays within this of the last one
+  const SPEED_RAMP = 0.015, SPEED_CAP = 1.5;
+  const HIT_RADIUS = 0.015;
+  const LIFT_LOSS_PER_HIT = 0.08, WOBBLE_PER_HIT = 0.25;
   const LIVES = 3;
 
   let best = 0;
@@ -106,14 +111,23 @@ body {
     P.hits = 0; P.inv = 0; P.spin = 0; P.creases = [];
     obs = []; trail = []; score = 0; newBest = false;
     untilNext = H * 0.55;
+    lastGapCenter = null;
   }
 
-  function currentSpeed() { return SPEED * H * Math.min(1.6, 1 + score * 0.02); }
+  let lastGapCenter = null;
+  function currentSpeed() { return SPEED * H * Math.min(SPEED_CAP, 1 + score * SPEED_RAMP); }
 
   function spawnPencil() {
-    const gap = Math.max(GAP_MIN, GAP_START - score * 0.004) * H;
+    const gap = Math.max(GAP_MIN, GAP_START - score * GAP_SHRINK) * H;
     const margin = H * 0.12;
-    const center = margin + gap / 2 + Math.random() * (H - 2 * margin - gap);
+    // Anywhere on the page, but never too far from the last gap to reach in time.
+    let lo = margin + gap / 2, hi = H - margin - gap / 2;
+    if (lastGapCenter !== null) {
+      lo = Math.max(lo, lastGapCenter - MAX_GAP_SHIFT * H);
+      hi = Math.min(hi, lastGapCenter + MAX_GAP_SHIFT * H);
+    }
+    const center = lo + Math.random() * (hi - lo);
+    lastGapCenter = center;
     obs.push({
       x: W + pw(), top: center - gap / 2, bot: center + gap / 2, passed: false,
       topColor: PENCILS[Math.floor(Math.random() * PENCILS.length)],
@@ -249,9 +263,9 @@ body {
 
     if (state === 'play') {
       worldX += sp * dt;
-      const lift = LIFT * (1 - 0.12 * P.hits);
+      const lift = LIFT * (1 - LIFT_LOSS_PER_HIT * P.hits);
       let acc = (holding ? -lift : GRAVITY) * H;
-      if (P.hits > 0) acc += Math.sin(now / 90) * H * 0.35 * P.hits; // crumpled wings wobble
+      if (P.hits > 0) acc += Math.sin(now / 90) * H * WOBBLE_PER_HIT * P.hits; // crumpled wings wobble
       P.vy = Math.max(-MAX_UP * H, Math.min(MAX_DOWN * H, P.vy + acc * dt));
       P.y += P.vy * dt;
       P.angle = Math.atan2(P.vy, sp) * 0.8;
@@ -260,7 +274,7 @@ body {
       untilNext -= sp * dt;
       if (untilNext <= 0) { spawnPencil(); untilNext += SPACING * H; }
 
-      const r = H * 0.018, w = pw(), tip = w * 1.1;
+      const r = H * HIT_RADIUS, w = pw(), tip = w * 1.1;
       for (const o of obs) {
         o.x -= sp * dt;
         if (!o.passed && o.x + w / 2 < P.x) { o.passed = true; score++; pop = 1; sfxScore(); }

@@ -42,7 +42,14 @@ final class GameEngine {
     static let maxUp = 0.62, maxDown = 0.8
     static let speed = 0.33         // scroll speed, H/s
     static let spacing = 0.40       // distance between pencil pairs, H
-    static let gapStart = 0.31, gapMin = 0.21
+    static let gapStart = 0.32, gapMin = 0.22
+    static let gapShrink = 0.003    // H narrower per point
+    static let maxGapShift = 0.22   // next gap's center stays within this of the last one
+    static let speedRamp = 0.015    // faster per point...
+    static let speedCap = 1.5       // ...up to this multiple
+    static let hitRadius = 0.015    // plane's collision radius, H
+    static let liftLossPerHit = 0.08
+    static let wobblePerHit = 0.25  // H/s² of wobble per crumpled wing
     static let lives = 3
     static let pencilColorCount = 5 // yellow twice, so it is the most common
 
@@ -70,6 +77,7 @@ final class GameEngine {
     private(set) var fps = 0.0
     private var needRelease = false
     private var untilNext = 0.0
+    private var lastGapCenter: Double?
     private var untilDoodle = 0.0
     private var overAt = 0.0
     private var trailClock = 0.0
@@ -138,16 +146,24 @@ final class GameEngine {
         score = 0
         newBest = false
         untilNext = H * 0.55
+        lastGapCenter = nil
     }
 
     private func currentSpeed() -> Double {
-        Self.speed * H * min(1.6, 1 + Double(score) * 0.02)
+        Self.speed * H * min(Self.speedCap, 1 + Double(score) * Self.speedRamp)
     }
 
     private func spawnPencil() {
-        let gap = max(Self.gapMin, Self.gapStart - Double(score) * 0.004) * H
+        let gap = max(Self.gapMin, Self.gapStart - Double(score) * Self.gapShrink) * H
         let margin = H * 0.12
-        let center = margin + gap / 2 + Double.random(in: 0..<1) * (H - 2 * margin - gap)
+        // Anywhere on the page, but never too far from the last gap to reach in time.
+        var lo = margin + gap / 2, hi = H - margin - gap / 2
+        if let last = lastGapCenter {
+            lo = max(lo, last - Self.maxGapShift * H)
+            hi = min(hi, last + Self.maxGapShift * H)
+        }
+        let center = lo + Double.random(in: 0..<1) * (hi - lo)
+        lastGapCenter = center
         pencils.append(Pencil(
             x: W + pencilWidth, top: center - gap / 2, bot: center + gap / 2,
             topColor: Int.random(in: 0..<Self.pencilColorCount),
@@ -224,10 +240,10 @@ final class GameEngine {
 
         if state == .play {
             worldX += sp * dt
-            let lift = Self.lift * (1 - 0.12 * Double(plane.hits))
+            let lift = Self.lift * (1 - Self.liftLossPerHit * Double(plane.hits))
             var acc = (holding ? -lift : Self.gravity) * H
             if plane.hits > 0 {
-                acc += sin(clock / 0.09) * H * 0.35 * Double(plane.hits) // crumpled wings wobble
+                acc += sin(clock / 0.09) * H * Self.wobblePerHit * Double(plane.hits) // crumpled wings wobble
             }
             plane.vy = max(-Self.maxUp * H, min(Self.maxDown * H, plane.vy + acc * dt))
             plane.y += plane.vy * dt
@@ -240,7 +256,7 @@ final class GameEngine {
                 untilNext += Self.spacing * H
             }
 
-            let r = H * 0.018, w = pencilWidth, tip = w * 1.1
+            let r = H * Self.hitRadius, w = pencilWidth, tip = w * 1.1
             for i in pencils.indices {
                 pencils[i].x -= sp * dt
                 let o = pencils[i]
