@@ -17,8 +17,6 @@ or its repo (mellemnick-del/Tick).
   then bumps a published counter so SwiftUI redraws.
 - Do not go back to `TimelineView(.animation)` for the game loop. On Nick's iPhone it did not
   tick: the game only advanced when a touch changed view state (seen in a screen recording).
-- Debug builds show a small red readout in the top-right corner (fps, state, touch, plane y).
-  It is compiled out of release builds. Ask Nick for a screenshot of it when debugging.
 - Input is `DragGesture(minimumDistance: 0)`: onChanged = finger down, onEnded = finger up.
 - Xcode project uses folder sync (objectVersion 77): files added under `PaperPlane/` are
   included automatically. Do not add files to the project by hand. `Info.plist` is excluded

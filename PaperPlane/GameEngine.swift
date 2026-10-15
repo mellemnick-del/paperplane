@@ -72,9 +72,6 @@ final class GameEngine {
     private(set) var pop = 0.0
 
     private var holding = false
-    var isHolding: Bool { holding }
-    /// Smoothed frames per second, for the debug readout.
-    private(set) var fps = 0.0
     private var needRelease = false
     private var untilNext = 0.0
     private var lastGapCenter: Double?
@@ -117,7 +114,6 @@ final class GameEngine {
         }
         let dt = lastTime.map { min(0.04, max(0, time - $0)) } ?? 0
         lastTime = time
-        if dt > 0 { fps = fps * 0.9 + (1 / dt) * 0.1 }
         clock += dt
         update(dt)
     }

@@ -28,13 +28,6 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 26)
                     .allowsHitTesting(false)
-
-                #if DEBUG
-                DebugReadout(game: game)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.trailing, 12)
-                    .allowsHitTesting(false)
-                #endif
             }
             .onChange(of: full, initial: true) { _, size in
                 game.viewSize = size
@@ -158,16 +151,3 @@ private struct Caption: View {
     }
 }
 
-#if DEBUG
-/// Tiny readout for testing from Xcode: frame rate, game state and whether a touch is held.
-/// Not included in release builds.
-private struct DebugReadout: View {
-    let game: GameEngine
-
-    var body: some View {
-        Text("\(Int(game.fps.rounded())) fps · \(String(describing: game.state)) · \(game.isHolding ? "HOLD" : "up") · y \(String(format: "%.2f", game.H > 0 ? game.plane.y / game.H : 0))")
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundStyle(.red)
-    }
-}
-#endif
