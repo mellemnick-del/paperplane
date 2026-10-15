@@ -65,6 +65,9 @@ final class GameEngine {
     private(set) var pop = 0.0
 
     private var holding = false
+    var isHolding: Bool { holding }
+    /// Smoothed frames per second, for the debug readout.
+    private(set) var fps = 0.0
     private var needRelease = false
     private var untilNext = 0.0
     private var untilDoodle = 0.0
@@ -87,6 +90,14 @@ final class GameEngine {
 
     // MARK: Frame
 
+    /// Full screen size in points, set by the view whenever it changes.
+    var viewSize: CGSize = .zero
+
+    /// Called once per display frame by FrameClock.
+    func step(to time: Double) {
+        step(to: time, size: viewSize)
+    }
+
     func step(to time: Double, size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
         W = Double(size.width)
@@ -98,6 +109,7 @@ final class GameEngine {
         }
         let dt = lastTime.map { min(0.04, max(0, time - $0)) } ?? 0
         lastTime = time
+        if dt > 0 { fps = fps * 0.9 + (1 / dt) * 0.1 }
         clock += dt
         update(dt)
     }

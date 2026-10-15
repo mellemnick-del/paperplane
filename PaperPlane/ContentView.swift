@@ -5,38 +5,46 @@ struct ContentView: View {
     @State private var sound = SoundFX()
     @State private var haptics = Haptics()
     @State private var holding = false
+    @StateObject private var clock = FrameClock()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
+        // Reading the frame counter makes SwiftUI redraw on every display refresh.
+        let _ = clock.frame
         GeometryReader { geo in
             let full = CGSize(
                 width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                 height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
             )
-            TimelineView(.animation) { timeline in
-                let now = timeline.date.timeIntervalSinceReferenceDate
-                let _ = game.step(to: now, size: full)
-                ZStack(alignment: .bottom) {
-                    Canvas { ctx, _ in
-                        GameRenderer.draw(game, in: ctx)
-                    }
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .gesture(holdGesture)
-                    .accessibilityLabel("Paper Plane game. Hold to climb, let go to dive.")
-                    .accessibilityAddTraits(.allowsDirectInteraction)
-
-                    Caption(game: game, time: now)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 26)
-                        .allowsHitTesting(false)
+            ZStack(alignment: .bottom) {
+                Canvas { ctx, _ in
+                    GameRenderer.draw(game, in: ctx)
                 }
+                .ignoresSafeArea()
+                .accessibilityLabel("Paper Plane game. Hold to climb, let go to dive.")
+                .accessibilityAddTraits(.allowsDirectInteraction)
+
+                Caption(game: game, time: game.clock)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 26)
+                    .allowsHitTesting(false)
+
+                #if DEBUG
+                DebugReadout(game: game)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.trailing, 12)
+                    .allowsHitTesting(false)
+                #endif
+            }
+            .onChange(of: full, initial: true) { _, size in
+                game.viewSize = size
             }
         }
+        // The paper background extends under the safe areas, so the whole screen is touchable.
         .background(Palette.paper.ignoresSafeArea())
+        .contentShape(Rectangle())
+        .gesture(holdGesture)
         .statusBarHidden(true)
-        .persistentSystemOverlays(.hidden)
-        .defersSystemGestures(on: .all)
         .onAppear(perform: wire)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -63,6 +71,7 @@ struct ContentView: View {
     }
 
     private func wire() {
+        let game = self.game
         let sound = self.sound
         let haptics = self.haptics
         game.onScore = {
@@ -72,6 +81,9 @@ struct ContentView: View {
         game.onCrumple = {
             sound.crumple()
             haptics.crumple()
+        }
+        clock.start { time in
+            game.step(to: time)
         }
     }
 }
@@ -145,3 +157,17 @@ private struct Caption: View {
         return 1 - 0.65 * wave
     }
 }
+
+#if DEBUG
+/// Tiny readout for testing from Xcode: frame rate, game state and whether a touch is held.
+/// Not included in release builds.
+private struct DebugReadout: View {
+    let game: GameEngine
+
+    var body: some View {
+        Text("\(Int(game.fps.rounded())) fps · \(String(describing: game.state)) · \(game.isHolding ? "HOLD" : "up") · y \(String(format: "%.2f", game.H > 0 ? game.plane.y / game.H : 0))")
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(.red)
+    }
+}
+#endif
