@@ -2,51 +2,67 @@ import AVFoundation
 
 /// The prototype's two Web Audio sounds, rendered once into PCM buffers at launch:
 /// a band-passed noise burst for the paper crumple and a rising triangle chirp per point.
+///
+/// All audio work runs on a private serial queue. Activating the audio session or
+/// starting the engine can block for a moment, and doing that on the main thread
+/// trips iOS's "AVAudioSession Hang Risk" check and stalls touches.
 final class SoundFX {
+    private let queue = DispatchQueue(label: "com.nickmellem.paperplane.sound", qos: .userInitiated)
     private let engine = AVAudioEngine()
     private let crumplePlayer = AVAudioPlayerNode()
     private let chirpPlayer = AVAudioPlayerNode()
     private let format: AVAudioFormat
     private var crumpleBuffer: AVAudioPCMBuffer?
     private var chirpBuffer: AVAudioPCMBuffer?
-    private var ready = false
+    private var configured = false
 
     init() {
-        let rate = 44_100.0
-        format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1)!
-        crumpleBuffer = makeBuffer(seconds: 0.4, Self.crumpleSamples(rate: rate))
-        chirpBuffer = makeBuffer(seconds: 0.17, Self.chirpSamples(rate: rate))
+        format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        queue.async { self.setUp() }
+    }
+
+    func crumple() { queue.async { self.play(self.crumpleBuffer, on: self.crumplePlayer) } }
+    func chirp() { queue.async { self.play(self.chirpBuffer, on: self.chirpPlayer) } }
+
+    /// Call when the app returns to the foreground; iOS can stop the engine in the background.
+    func start() { queue.async { self.startEngine() } }
+
+    // MARK: Audio queue only
+
+    private func setUp() {
+        let rate = format.sampleRate
+        crumpleBuffer = makeBuffer(Self.crumpleSamples(rate: rate))
+        chirpBuffer = makeBuffer(Self.chirpSamples(rate: rate))
 
         // Ambient: respects the silent switch and mixes with the player's music.
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.ambient, options: [.mixWithOthers])
+        try? session.setActive(true)
 
         for player in [crumplePlayer, chirpPlayer] {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: format)
         }
-        start()
+        configured = true
+        startEngine()
     }
 
-    func crumple() { play(crumpleBuffer, on: crumplePlayer) }
-    func chirp() { play(chirpBuffer, on: chirpPlayer) }
-
-    /// Call when the app returns to the foreground; iOS can stop the engine in the background.
-    func start() {
-        guard !engine.isRunning else { return }
+    private func startEngine() {
+        guard configured, !engine.isRunning else { return }
+        try? AVAudioSession.sharedInstance().setActive(true)
         engine.prepare()
-        ready = (try? engine.start()) != nil
+        try? engine.start()
     }
 
     private func play(_ buffer: AVAudioPCMBuffer?, on player: AVAudioPlayerNode) {
-        guard let buffer else { return }
-        if !engine.isRunning { start() }
-        guard ready, engine.isRunning else { return }
+        guard configured, let buffer else { return }
+        if !engine.isRunning { startEngine() }
+        guard engine.isRunning else { return }
         player.scheduleBuffer(buffer, at: nil, options: .interrupts)
         if !player.isPlaying { player.play() }
     }
 
-    private func makeBuffer(seconds: Double, _ samples: [Float]) -> AVAudioPCMBuffer? {
+    private func makeBuffer(_ samples: [Float]) -> AVAudioPCMBuffer? {
         let frames = AVAudioFrameCount(samples.count)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
               let channel = buffer.floatChannelData?[0] else { return nil }
