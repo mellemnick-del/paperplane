@@ -27,7 +27,7 @@ unique, and plain "Paper Plane" is almost certainly taken. Backups if this one i
 **Promotional text** (170 max, can be changed any time without a review):
 
 ```
-Fold up, take off, and thread the pencils. One finger, one notebook page, and a best score that won't beat itself. No ads, no tracking, just fly.
+Fold up, take off, and thread the pencils. One finger, one notebook page, and a best score that won't beat itself. How far can you fly?
 ```
 
 **Description** (4000 max):
@@ -47,8 +47,8 @@ THE DETAILS
 • Paper crumple sounds and haptics you can feel
 • Your best score saved on your phone
 
-NO ADS. NO TRACKING.
-No accounts, no ads, no in-app purchases, and no data collected. It works offline, anywhere: on the couch, in line, or in the back of class.
+PICK UP AND PLAY
+No account, no setup, no tutorial to sit through. It works offline, anywhere: on the couch, in line, or in the back of class.
 
 How many pencils can you clear?
 ```
@@ -57,7 +57,7 @@ How many pencils can you clear?
 are indexed automatically, so they are left out):
 
 ```
-airplane,glider,arcade,one tap,casual,pencil,doodle,fly,offline,no ads,sketch,origami,simple,tap
+airplane,glider,arcade,one tap,casual,pencil,doodle,fly,offline,endless,sketch,origami,simple,tap
 ```
 
 **Support URL:** `https://mellemnick-del.github.io/paperplane/support.html` (see Hosting below)
@@ -76,7 +76,7 @@ Upload the four files in `appstore/screenshots/`, in order, to the **6.9" Displa
 1. `1-hold-to-climb.png`
 2. `2-crumple-a-wing.png`
 3. `3-beat-your-best.png`
-4. `4-no-ads.png`
+4. `4-endless-pencils.png`
 
 ## App Privacy
 
@@ -86,6 +86,10 @@ Upload the four files in `appstore/screenshots/`, in order, to the **6.9" Displa
 
 The best score is stored only on the device (UserDefaults), and `PrivacyInfo.xcprivacy`
 already declares that, so nothing else is needed.
+
+If a later version adds ads (for example Google AdMob), this answer, the privacy manifest
+and `docs/privacy.html` must all be updated in that same release, because ad networks
+collect device data and usually need Apple's tracking permission prompt.
 
 ## Age rating
 
@@ -100,7 +104,7 @@ will not ask.
 ## App Review notes
 
 ```
-Paper Plane is a single-screen arcade game. Hold anywhere on the screen to climb, release to dive, and fly through the gaps between pencils. No account or login is needed. The app collects no data and has no ads or in-app purchases.
+Paper Plane is a single-screen arcade game. Hold anywhere on the screen to climb, release to dive, and fly through the gaps between pencils. No account or login is needed, and the app collects no data.
 ```
 
 Sign-in required: No. Contact info: your name, phone and email (only Apple sees these).
