@@ -103,6 +103,12 @@ body {
   let best = 0;
   try { best = parseInt(localStorage.getItem('paperplane.best'), 10) || 0; } catch (e) {}
 
+  // A player's first few games show handwritten how-to notes and start with an easy gap.
+  const LEARNER_GAMES = 3, DEMO_PERIOD = 2.4;
+  let gamesPlayed = 0, learning = false, playTime = 0, spawnedThisGame = 0, clockS = 0;
+  try { gamesPlayed = parseInt(localStorage.getItem('paperplane.gamesPlayed'), 10) || 0; } catch (e) {}
+  function demoPhase() { return (clockS / DEMO_PERIOD) % 1; }
+
   const P = { x: 0, y: 0, vy: 0, angle: 0, hits: 0, inv: 0, spin: 0, creases: [] };
   let obs = [], doodles = [], trail = [];
   let state = 'ready', score = 0, holding = false, untilNext = 0, untilDoodle = 0;
@@ -122,7 +128,11 @@ body {
   function currentSpeed() { return SPEED * H * Math.min(SPEED_CAP, 1 + score * SPEED_RAMP); }
 
   function spawnPencil() {
-    const gap = Math.max(GAP_MIN, GAP_START - score * GAP_SHRINK) * H;
+    let gap = Math.max(GAP_MIN, GAP_START - score * GAP_SHRINK) * H;
+    // A new player's first gap is extra wide and lined up with the plane.
+    const gentle = learning && spawnedThisGame === 0;
+    if (gentle) gap = Math.max(gap, H * 0.40);
+    spawnedThisGame++;
     const margin = H * 0.12;
     // Anywhere on the page, but never too far from the last gap to reach in time.
     let lo = margin + gap / 2, hi = H - margin - gap / 2;
@@ -130,6 +140,7 @@ body {
       lo = Math.max(lo, lastGapCenter - MAX_GAP_SHIFT * H);
       hi = Math.min(hi, lastGapCenter + MAX_GAP_SHIFT * H);
     }
+    if (gentle) { const c = Math.min(Math.max(H * 0.45, lo), hi); lo = c; hi = c; }
     const center = lo + Math.random() * (hi - lo);
     lastGapCenter = center;
     obs.push({
@@ -157,6 +168,10 @@ body {
 
   function start() {
     reset();
+    learning = gamesPlayed < LEARNER_GAMES;
+    gamesPlayed++;
+    try { localStorage.setItem('paperplane.gamesPlayed', String(gamesPlayed)); } catch (e) {}
+    playTime = 0; spawnedThisGame = 0;
     state = 'play';
     ui();
   }
@@ -201,8 +216,8 @@ body {
   function ui() {
     if (state === 'ready') {
       elEyebrow.textContent = '';
-      elLine.textContent = 'Hold to climb. Let go to dive.';
-      elHint.textContent = 'Clip a pencil and your wing crumples. Three strikes.';
+      elLine.textContent = 'Hold anywhere to take off';
+      elHint.textContent = '';
       elHint.classList.remove('blink');
     } else if (state === 'play') {
       elEyebrow.textContent = ''; elLine.textContent = ''; elHint.textContent = '';
@@ -277,15 +292,19 @@ body {
   }
 
   function update(dt, now) {
+    clockS += dt;
     const sp = currentSpeed();
 
     if (state === 'ready') {
       P.x = W * 0.28;
-      P.y = H * 0.45 + Math.sin(now / 320) * H * 0.012;
-      P.angle = Math.cos(now / 320) * 0.12;
+      // Demo the controls: climb while the drawn finger presses, dive when it lets go.
+      const a = 2 * Math.PI * demoPhase(), amp = H * 0.05;
+      P.y = H * 0.45 + amp * Math.cos(a);
+      P.angle = Math.atan2(-amp * 2 * Math.PI / DEMO_PERIOD * Math.sin(a), SPEED * H) * 0.8;
     }
 
     if (state === 'play') {
+      playTime += dt;
       worldX += sp * dt;
       const lift = LIFT * (1 - LIFT_LOSS_PER_HIT * P.hits);
       let acc = (holding ? -lift : GRAVITY) * H;
@@ -540,10 +559,99 @@ body {
       drawPencil(o.x, o.top, 1, o.topColor);
       drawPencil(o.x, o.bot, -1, o.botColor);
     }
+    if (state === 'ready') drawStartNotes();
     drawTrail();
     drawPlane();
+    if (learning && state === 'play') drawGapNote();
     ctx.restore();
     drawHud();
+    if (learning && state === 'play') drawHudNotes();
+  }
+
+  // How-to notes (same layout as the app's GameRenderer)
+  const HAND = '"Patrick Hand", "Comic Sans MS", cursive';
+  function note(text, size, color, x, y, align, base, rot, alpha) {
+    if (alpha === 0) return;
+    ctx.save();
+    ctx.globalAlpha *= (alpha === undefined ? 1 : alpha);
+    ctx.translate(x, y); ctx.rotate(rot || 0);
+    ctx.fillStyle = color; ctx.font = Math.round(size * K) + 'px ' + HAND;
+    ctx.textAlign = align; ctx.textBaseline = base;
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+  function arrow(ax, ay, bx, by, cx, cy, dashed, color, alpha) {
+    if (alpha === 0) return;
+    ctx.save();
+    ctx.globalAlpha *= (alpha === undefined ? 1 : alpha);
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6 * K; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.setLineDash(dashed ? [5 * K, 7 * K] : []);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cx, cy, bx, by); ctx.stroke();
+    ctx.setLineDash([]);
+    const ang = Math.atan2(by - cy, bx - cx), len = 9 * K;
+    ctx.beginPath();
+    ctx.moveTo(bx - len * Math.cos(ang - 0.5), by - len * Math.sin(ang - 0.5));
+    ctx.lineTo(bx, by);
+    ctx.lineTo(bx - len * Math.cos(ang + 0.5), by - len * Math.sin(ang + 0.5));
+    ctx.stroke();
+    ctx.restore();
+  }
+  function controlRow(text, up, active, x, y) {
+    const color = active ? C['red-ink'] : C['pencil-lead'], alpha = active ? 1 : 0.45, half = H * 0.014;
+    arrow(x, up ? y + half : y - half, x, up ? y - half : y + half, x, y, false, color, alpha);
+    note(text, 22, color, x + H * 0.022, y, 'left', 'middle', 0, alpha);
+  }
+  function touchMark(x, y, pressed) {
+    const r = H * 0.02;
+    ctx.save();
+    ctx.lineWidth = 1.6 * K; ctx.strokeStyle = C.graphite;
+    ctx.fillStyle = pressed ? 'rgba(200, 70, 61, 0.3)' : '#ffffff';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.stroke();
+    if (pressed) {
+      const t = demoPhase() * 2, rr = r * (1.25 + 0.9 * t);
+      ctx.globalAlpha = 1 - t; ctx.strokeStyle = C['red-ink'];
+      ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+    note('touch anywhere', 17, C['pencil-lead'], x, y + r * 2.4, 'center', 'top');
+  }
+  function drawStartNotes() {
+    const pressed = demoPhase() < 0.5;
+    const gapX = W * 0.84;
+    drawPencil(gapX, H * 0.33, 1, PENCILS[0]);
+    drawPencil(gapX, H * 0.57, -1, PENCILS[2]);
+    const fx = P.x + H * 0.045, tx = gapX + pw() * 0.9;
+    arrow(fx, H * 0.45, tx, H * 0.45, (fx + tx) / 2, H * 0.40, true, C['pencil-lead']);
+    note('fly through the gaps!', 21, C.graphite, (fx + gapX) / 2 - pw() * 0.3, H * 0.365, 'center', 'middle', -0.06);
+    const left = W * 0.16, rowUp = H * 0.62, rowDown = H * 0.675;
+    controlRow('hold to climb', true, pressed, left, rowUp);
+    controlRow('let go to dive', false, !pressed, left, rowDown);
+    touchMark(Math.max(W * 0.6, left + H * 0.2), (rowUp + rowDown) / 2, pressed);
+  }
+  function fade(start, end) { return Math.max(0, Math.min(1, (playTime - start) / 0.4, (end - playTime) / 0.8)); }
+  function drawHudNotes() {
+    const iconSize = H * 0.02, hudY = H * 0.1;
+    const wings = fade(0.3, 5.5);
+    if (wings > 0) {
+      const ax = 16 + iconSize * 3.6;
+      arrow(ax, hudY + H * 0.04, ax, hudY + iconSize * 1.1, ax + iconSize, hudY + H * 0.03, false, C['red-ink'], wings);
+      note('your 3 wings', 19, C['red-ink'], 16, hudY + H * 0.045, 'left', 'top', -0.03, wings);
+    }
+    const scoring = fade(0.8, 6.5);
+    if (scoring > 0) {
+      const sx = W / 2;
+      arrow(sx, hudY + H * 0.056, sx, hudY + H * 0.038, sx + H * 0.008, hudY + H * 0.047, false, C['red-ink'], scoring);
+      note('+1 per gap', 19, C['red-ink'], sx, hudY + H * 0.06, 'center', 'top', -0.03, scoring);
+    }
+  }
+  function drawGapNote() {
+    const o = obs[0];
+    if (score !== 0 || !o || o.x + pw() / 2 <= P.x) return;
+    const appear = Math.max(0, Math.min(1, (W - o.x) / (W * 0.15)));
+    const mid = (o.top + o.bot) / 2, tipX = o.x - pw() * 0.7;
+    const textX = tipX - H * 0.09, textY = mid - H * 0.07;
+    arrow(textX + H * 0.02, textY + H * 0.008, tipX, mid - H * 0.01, tipX - H * 0.01, textY, false, C['red-ink'], appear);
+    note('fly through the gap!', 20, C['red-ink'], textX, textY, 'center', 'bottom', -0.05, appear);
   }
 
   let last = performance.now();

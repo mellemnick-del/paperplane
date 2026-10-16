@@ -18,6 +18,11 @@ or its repo (mellemnick-del/Tick).
   iPad: resizable windows too. The engine rescales the
   world when the screen size changes (`rescale`). Line widths and caption text scale by
   `k = max(1, H / 956)`, so every iPhone is unchanged and iPads get thicker strokes.
+- How-to notes: the start screen is a hand-drawn diagram (the plane demos hold/let go in a
+  2.4 s loop, a sample pencil pair shows the goal). A player's first 3 games
+  (`GameEngine.learnerGames`, counted in UserDefaults as `paperplane.gamesPlayed`) show
+  fading notes at the wings, score and first gap, and start with a wide gap lined up with
+  the plane. Notes are drawn on the start screen too, so their stroke styles are warmed up.
 - The spacebar works like a finger (iPad and Mac keyboards), handled in `TouchSurface`.
 - Everything is drawn in one SwiftUI `Canvas`. Game rules live in the plain Swift class
   `GameEngine`; `FrameClock` (a CADisplayLink) calls `step(to:)` once per display frame and

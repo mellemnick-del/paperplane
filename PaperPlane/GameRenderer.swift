@@ -69,10 +69,149 @@ struct GameRenderer {
             drawPencil(o.x, tipY: o.top, dir: 1, color: Palette.pencils[o.topColor], world)
             drawPencil(o.x, tipY: o.bot, dir: -1, color: Palette.pencils[o.botColor], world)
         }
+        if game.state == .ready { drawStartNotes(world) }
         drawTrail(world)
         drawPlane(world)
         drawHud(ctx)
+        drawLearnerNotes(hud: ctx, world: world)
         if game.state == .ready { warmUp(ctx) }
+    }
+
+    // MARK: How-to notes
+
+    /// Start screen: a little hand-drawn diagram of how to play. The plane demos the controls
+    /// (it climbs while the drawn fingertip presses and dives when it lets go), a sample pencil
+    /// pair shows the goal, and the matching control note lights up in red ink.
+    private func drawStartNotes(_ ctx: GraphicsContext) {
+        let pressed = game.demoPressed
+        let gapX = W * 0.84, gapTop = H * 0.33, gapBot = H * 0.57
+        drawPencil(gapX, tipY: gapTop, dir: 1, color: Palette.pencils[0], ctx)
+        drawPencil(gapX, tipY: gapBot, dir: -1, color: Palette.pencils[2], ctx)
+
+        // The goal: a dashed flight path from the plane through the gap.
+        let from = CGPoint(x: game.plane.x + H * 0.045, y: H * 0.45)
+        let to = CGPoint(x: gapX + game.pencilWidth * 0.9, y: H * 0.45)
+        arrow(from: from, to: to, control: CGPoint(x: (from.x + to.x) / 2, y: H * 0.40),
+              dashed: true, color: Palette.pencilLead, ctx)
+        note("fly through the gaps!", size: 21, color: Palette.graphite,
+             at: CGPoint(x: (Double(from.x) + gapX) / 2 - game.pencilWidth * 0.3, y: H * 0.365),
+             anchor: .center, rotation: -0.06, ctx)
+
+        // The controls, with the one the demo is doing in red.
+        let left = W * 0.16, rowUp = H * 0.62, rowDown = H * 0.675
+        controlRow("hold to climb", up: true, active: pressed, x: left, y: rowUp, ctx)
+        controlRow("let go to dive", up: false, active: !pressed, x: left, y: rowDown, ctx)
+        touchMark(at: CGPoint(x: max(W * 0.6, left + H * 0.2), y: (rowUp + rowDown) / 2),
+                  pressed: pressed, ctx)
+    }
+
+    /// A new player's first few games: short-lived notes pointing at the wings, the score and
+    /// the first gap.
+    private func drawLearnerNotes(hud: GraphicsContext, world: GraphicsContext) {
+        guard game.learning, game.state == .play else { return }
+        let t = game.playTime
+        func fade(_ start: Double, _ end: Double) -> Double {
+            max(0, min(1, (t - start) / 0.4, (end - t) / 0.8))
+        }
+        let iconSize = H * 0.02, hudY = H * 0.1
+
+        // The wing icons in the corner.
+        let wings = fade(0.3, 5.5)
+        if wings > 0 {
+            let ax = 16 + iconSize * 3.6
+            arrow(from: CGPoint(x: ax, y: hudY + H * 0.04), to: CGPoint(x: ax, y: hudY + iconSize * 1.1),
+                  control: CGPoint(x: ax + iconSize, y: hudY + H * 0.03), color: Palette.redInk, opacity: wings, hud)
+            note("your 3 wings", size: 19, color: Palette.redInk, at: CGPoint(x: 16, y: hudY + H * 0.045),
+                 anchor: .topLeading, rotation: -0.03, opacity: wings, hud)
+        }
+
+        // The score.
+        let scoring = fade(0.8, 6.5)
+        if scoring > 0 {
+            let sx = W / 2
+            arrow(from: CGPoint(x: sx, y: hudY + H * 0.056), to: CGPoint(x: sx, y: hudY + H * 0.038),
+                  control: CGPoint(x: sx + H * 0.008, y: hudY + H * 0.047), color: Palette.redInk, opacity: scoring, hud)
+            note("+1 per gap", size: 19, color: Palette.redInk, at: CGPoint(x: sx, y: hudY + H * 0.06),
+                 anchor: .top, rotation: -0.03, opacity: scoring, hud)
+        }
+
+        // The first gap, until the plane is through it.
+        if game.score == 0, let o = game.pencils.first, o.x + game.pencilWidth / 2 > game.plane.x {
+            let appear = max(0, min(1, (W - o.x) / (W * 0.15)))
+            let mid = (o.top + o.bot) / 2
+            let tipX = o.x - game.pencilWidth * 0.7
+            let textX = tipX - H * 0.09, textY = mid - H * 0.07
+            arrow(from: CGPoint(x: textX + H * 0.02, y: textY + H * 0.008), to: CGPoint(x: tipX, y: mid - H * 0.01),
+                  control: CGPoint(x: tipX - H * 0.01, y: textY), color: Palette.redInk, opacity: appear, world)
+            note("fly through the gap!", size: 20, color: Palette.redInk, at: CGPoint(x: textX, y: textY),
+                 anchor: .bottom, rotation: -0.05, opacity: appear, world)
+        }
+    }
+
+    /// One control line: a drawn arrow and a handwritten label.
+    private func controlRow(_ text: String, up: Bool, active: Bool, x: Double, y: Double, _ ctx: GraphicsContext) {
+        let color = active ? Palette.redInk : Palette.pencilLead
+        let opacity = active ? 1.0 : 0.45
+        let half = H * 0.014
+        arrow(from: CGPoint(x: x, y: up ? y + half : y - half), to: CGPoint(x: x, y: up ? y - half : y + half),
+              control: CGPoint(x: x, y: y), color: color, opacity: opacity, ctx)
+        note(text, size: 22, color: color, at: CGPoint(x: x + H * 0.022, y: y), anchor: .leading, opacity: opacity, ctx)
+    }
+
+    /// A drawn fingertip: fills in red and sends out a ring while "pressing".
+    private func touchMark(at p: CGPoint, pressed: Bool, _ base: GraphicsContext) {
+        var ctx = base
+        let r = H * 0.02
+        let pen = StrokeStyle(lineWidth: 1.6 * k, lineCap: .round, lineJoin: .round)
+        let dot = Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+        ctx.fill(dot, with: .color(pressed ? Palette.redInk.opacity(0.3) : .white))
+        ctx.stroke(dot, with: .color(Palette.graphite), style: pen)
+        if pressed {
+            let t = game.demoPhase * 2 // 0...1 through the press
+            let rr = r * (1.25 + 0.9 * t)
+            var ring = ctx
+            ring.opacity = 1 - t
+            ring.stroke(Path(ellipseIn: CGRect(x: p.x - rr, y: p.y - rr, width: rr * 2, height: rr * 2)),
+                        with: .color(Palette.redInk), style: pen)
+        }
+        note("touch anywhere", size: 17, color: Palette.pencilLead,
+             at: CGPoint(x: p.x, y: p.y + r * 2.4), anchor: .top, ctx)
+    }
+
+    /// Handwritten text in Patrick Hand, scaled for iPads like everything else.
+    private func note(_ text: String, size: Double, color: Color, at p: CGPoint, anchor: UnitPoint,
+                      rotation: Double = 0, opacity: Double = 1, _ base: GraphicsContext) {
+        guard opacity > 0 else { return }
+        var ctx = base
+        ctx.opacity *= opacity
+        ctx.translateBy(x: p.x, y: p.y)
+        ctx.rotate(by: .radians(rotation))
+        let label = Text(text)
+            .font(.custom(AppFont.hand, fixedSize: size * k))
+            .foregroundColor(color)
+        ctx.draw(label, at: .zero, anchor: anchor)
+    }
+
+    /// A pencil arrow along a gentle curve, with an open arrowhead at the end.
+    private func arrow(from a: CGPoint, to b: CGPoint, control c: CGPoint, dashed: Bool = false,
+                       color: Color, opacity: Double = 1, _ base: GraphicsContext) {
+        guard opacity > 0 else { return }
+        var ctx = base
+        ctx.opacity *= opacity
+        var line = Path()
+        line.move(to: a)
+        line.addQuadCurve(to: b, control: c)
+        let dash: [CGFloat] = dashed ? [CGFloat(5 * k), CGFloat(7 * k)] : []
+        ctx.stroke(line, with: .color(color),
+                   style: StrokeStyle(lineWidth: 1.6 * k, lineCap: .round, lineJoin: .round, dash: dash))
+        let angle = atan2(Double(b.y - c.y), Double(b.x - c.x))
+        let len = 9 * k
+        let bx = Double(b.x), by = Double(b.y)
+        var head = Path()
+        head.move(to: CGPoint(x: bx - len * cos(angle - 0.5), y: by - len * sin(angle - 0.5)))
+        head.addLine(to: b)
+        head.addLine(to: CGPoint(x: bx - len * cos(angle + 0.5), y: by - len * sin(angle + 0.5)))
+        ctx.stroke(head, with: .color(color), style: StrokeStyle(lineWidth: 1.6 * k, lineCap: .round, lineJoin: .round))
     }
 
     /// iOS builds the GPU pipeline for each new kind of stroke the first time it is drawn,
@@ -90,7 +229,7 @@ struct GameRenderer {
         dashed.move(to: CGPoint(x: x - 40, y: y))
         dashed.addLine(to: CGPoint(x: x, y: y + 10))
         dashed.addLine(to: CGPoint(x: x + 40, y: y))
-        ctx.stroke(dashed, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5 * k, dash: [5 * k, 7 * k]))
+        ctx.stroke(dashed, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5 * k, dash: [CGFloat(5 * k), CGFloat(7 * k)]))
 
         var lines = Path()
         lines.move(to: CGPoint(x: x - 20, y: y - 20))
@@ -263,7 +402,7 @@ struct GameRenderer {
             let pt = CGPoint(x: t.x - H * 0.03, y: t.y)
             if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
         }
-        ctx.stroke(p, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5 * k, dash: [5 * k, 7 * k]))
+        ctx.stroke(p, with: .color(Palette.pencilLead), style: StrokeStyle(lineWidth: 1.5 * k, dash: [CGFloat(5 * k), CGFloat(7 * k)]))
     }
 
     private func drawPlane(_ base: GraphicsContext) {

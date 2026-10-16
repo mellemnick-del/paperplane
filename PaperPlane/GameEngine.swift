@@ -55,6 +55,11 @@ final class GameEngine {
     static let pencilColorCount = 5 // yellow twice, so it is the most common
 
     private static let bestKey = "paperplane.best"
+    private static let gamesPlayedKey = "paperplane.gamesPlayed"
+
+    /// A player's first few games show handwritten how-to notes and start with an easy gap.
+    static let learnerGames = 3
+    static let demoPeriod = 2.4     // seconds per hold/let-go cycle in the start screen demo
 
     // Screen size in points
     private(set) var W = 0.0
@@ -82,6 +87,19 @@ final class GameEngine {
 
     /// Seconds since the engine started; drives the bob and the wobble.
     private(set) var clock = 0.0
+
+    /// How many games this device has started, saved between launches.
+    private(set) var gamesPlayed = 0
+    /// True while the current game is one of the player's first few.
+    private(set) var learning = false
+    /// Seconds since the current game started, for timing the how-to notes.
+    private(set) var playTime = 0.0
+    private var spawnedThisGame = 0
+
+    /// Start screen demo: the plane climbs while the drawn finger presses, then dives.
+    var demoPressed: Bool { demoPhase < 0.5 }
+    /// 0...1 through the current demo cycle.
+    var demoPhase: Double { (clock / Self.demoPeriod).truncatingRemainder(dividingBy: 1) }
     private var lastTime: Double?
     private var configured = false
 
@@ -90,6 +108,7 @@ final class GameEngine {
 
     init() {
         best = UserDefaults.standard.integer(forKey: Self.bestKey)
+        gamesPlayed = UserDefaults.standard.integer(forKey: Self.gamesPlayedKey)
     }
 
     var pencilWidth: Double { H * 0.066 }
@@ -185,13 +204,23 @@ final class GameEngine {
     }
 
     private func spawnPencil() {
-        let gap = max(Self.gapMin, Self.gapStart - Double(score) * Self.gapShrink) * H
+        var gap = max(Self.gapMin, Self.gapStart - Double(score) * Self.gapShrink) * H
+        // A new player's first gap is extra wide and lined up with the plane, so the first
+        // try ends in a point instead of a crash.
+        let gentle = learning && spawnedThisGame == 0
+        if gentle { gap = max(gap, H * 0.40) }
+        spawnedThisGame += 1
         let margin = H * 0.12
         // Anywhere on the page, but never too far from the last gap to reach in time.
         var lo = margin + gap / 2, hi = H - margin - gap / 2
         if let last = lastGapCenter {
             lo = max(lo, last - Self.maxGapShift * H)
             hi = min(hi, last + Self.maxGapShift * H)
+        }
+        if gentle {
+            let c = min(max(H * 0.45, lo), hi)
+            lo = c
+            hi = c
         }
         let center = lo + Double.random(in: 0..<1) * (hi - lo)
         lastGapCenter = center
@@ -224,6 +253,11 @@ final class GameEngine {
 
     private func start() {
         reset()
+        learning = gamesPlayed < Self.learnerGames
+        gamesPlayed += 1
+        UserDefaults.standard.set(gamesPlayed, forKey: Self.gamesPlayedKey)
+        playTime = 0
+        spawnedThisGame = 0
         state = .play
     }
 
@@ -264,12 +298,17 @@ final class GameEngine {
         let sp = currentSpeed()
 
         if state == .ready {
+            // Demo the controls: climb while the drawn finger presses, dive when it lets go.
+            let a = 2 * Double.pi * demoPhase
+            let amp = H * 0.05
             plane.x = W * 0.28
-            plane.y = H * 0.45 + sin(clock / 0.32) * H * 0.012
-            plane.angle = cos(clock / 0.32) * 0.12
+            plane.y = H * 0.45 + amp * cos(a)
+            let vy = -amp * 2 * Double.pi / Self.demoPeriod * sin(a)
+            plane.angle = atan2(vy, Self.speed * H) * 0.8
         }
 
         if state == .play {
+            playTime += dt
             worldX += sp * dt
             let lift = Self.lift * (1 - Self.liftLossPerHit * Double(plane.hits))
             var acc = (holding ? -lift : Self.gravity) * H

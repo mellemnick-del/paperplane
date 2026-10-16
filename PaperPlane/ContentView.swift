@@ -116,7 +116,7 @@ private struct Caption: View {
 
     private var line: String? {
         switch game.state {
-        case .ready: return "Hold to climb. Let go to dive."
+        case .ready: return "Hold anywhere to take off"
         case .play: return nil
         case .over:
             let pencils = game.score == 1 ? "1 pencil" : "\(game.score) pencils"
@@ -126,7 +126,7 @@ private struct Caption: View {
 
     private var hint: String? {
         switch game.state {
-        case .ready: return "Clip a pencil and your wing crumples. Three strikes."
+        case .ready: return nil
         case .play: return nil
         case .over: return "Tap to fly again"
         }
