@@ -12,8 +12,8 @@ Character counts were checked against Apple's limits.
 | Bundle ID | `com.nickmellem.paperplane` |
 | SKU | `paperplane-ios-001` |
 | Primary language | English (U.S.) |
-| Primary category | Games, subcategory Arcade |
-| Secondary category | Games, subcategory Casual |
+| Category | Games, subcategories Casual and Action (App Store Connect has no Arcade subcategory) |
+| Secondary category | Optional: leave blank or Entertainment |
 | Content rights | Does not contain third-party content requiring rights (both fonts are open licensed and bundled with their licenses) |
 | Price | Free |
 | Availability | All countries |
