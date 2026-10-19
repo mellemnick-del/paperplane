@@ -15,7 +15,7 @@ final class AdsManager: NSObject, FullScreenContentDelegate {
     /// units, so testing can never count as invalid clicks on the real account.
     enum Unit {
         static let rewarded = "ca-app-pub-5409507532746127/6115955318"
-        static let interstitial: String? = nil // TODO: real "Between rounds" ID from AdMob
+        static let interstitial = "ca-app-pub-5409507532746127/3489791972"
 
         static let testRewarded = "ca-app-pub-3940256099942544/1712485313"
         static let testInterstitial = "ca-app-pub-3940256099942544/4411468910"
@@ -78,7 +78,7 @@ final class AdsManager: NSObject, FullScreenContentDelegate {
         Task { @MainActor in
             if await Self.isAppStoreDownload() {
                 rewardedUnit = Unit.rewarded
-                interstitialUnit = Unit.interstitial ?? Unit.testInterstitial
+                interstitialUnit = Unit.interstitial
             }
             MobileAds.shared.start(completionHandler: nil)
             loadInterstitial()
