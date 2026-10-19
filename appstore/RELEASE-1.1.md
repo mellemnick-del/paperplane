@@ -15,7 +15,9 @@ TestFlight automatically use Google's test ads, so testing never touches the rea
 2. Copy the **App ID** (`ca-app-pub-...~...`).
 3. In that app: Ad units > Add ad unit > **Rewarded**, name "Smooth a crease". Copy its ID.
 4. Add ad unit > **Interstitial**, name "Between rounds". Copy its ID.
-5. Blocking controls > Content > set the maximum ad content rating to **G** (the game is 4+).
+5. Blocking controls > Ad content rating > **G** (done). Keeps ads right for the 4+ rating.
+   Google estimates G earns noticeably less per ad than higher ratings. Revisit after a month
+   of real numbers: PG is the middle step (may mean a 9+ age rating), T would need 13+.
 6. Send the three IDs to Claude, who swaps them in:
    - `PaperPlane/Info.plist` > `GADApplicationIdentifier`
    - `PaperPlane/Monetization/AdsManager.swift` > `Unit.interstitial`, `Unit.rewarded`
