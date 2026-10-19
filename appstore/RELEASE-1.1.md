@@ -18,6 +18,9 @@ TestFlight automatically use Google's test ads, so testing never touches the rea
 5. Blocking controls > Ad content rating > **G** (done). Keeps ads right for the 4+ rating.
    Google estimates G earns noticeably less per ad than higher ratings. Revisit after a month
    of real numbers: PG is the middle step (may mean a 9+ age rating), T would need 13+.
+   **Plan (Nick, 2026-10-19):** move to **T** ads and a **13+** age rating, since kids under 10
+   are unlikely players. Reminder scheduled for 2026-11-16. The age rating change goes in with
+   the next app version; the AdMob setting can change any time.
 6. Send the three IDs to Claude, who swaps them in:
    - `PaperPlane/Info.plist` > `GADApplicationIdentifier`
    - `PaperPlane/Monetization/AdsManager.swift` > `Unit.interstitial`, `Unit.rewarded`
