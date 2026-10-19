@@ -43,6 +43,11 @@ or its repo (mellemnick-del/Tick).
   Bump `CURRENT_PROJECT_VERSION` (build) for every TestFlight upload.
 - Best score is stored in UserDefaults; `PrivacyInfo.xcprivacy` declares reason CA92.1,
   no tracking, no data collected. Update it if any new required-reason API is used.
+- App Store kit lives in `appstore/` (listing text, screenshots, header banners). The support
+  and privacy pages are `docs/`, served by GitHub Pages from main /docs at
+  https://mellemnick-del.github.io/paperplane/ (support email nmellemapps@gmail.com).
+  Version 1.0 was submitted to App Review on 2026-10-19 with no ads and "Data Not Collected";
+  adding ads later means updating the privacy label, PrivacyInfo.xcprivacy and privacy.html.
 - Cloud sessions run on Linux without Xcode, so code cannot be compiled there. Say so
   plainly, keep Swift conservative, and ask Nick to build on his Mac after changes.
 
