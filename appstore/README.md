@@ -82,6 +82,15 @@ Two sets, same four scenes, in this order:
 
 Apple scales each set down for the smaller iPhones and iPads, so these two sizes are enough.
 
+## Header (optional, recommended)
+
+The banner across the top of the product page. In App Store Connect: **1.0 Prepare for
+Submission > Header and Search Results > Header > Upload**. Apple lists two sizes; upload the one
+the page asks for (both are in `appstore/header/`):
+
+- `header_5244x2950.png`
+- `header_3840x1646.png`
+
 ## App Privacy
 
 - Privacy Policy URL: `https://mellemnick-del.github.io/paperplane/privacy.html`
