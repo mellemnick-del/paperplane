@@ -1,4 +1,5 @@
 import UIKit
+import StoreKit
 import GoogleMobileAds
 import UserMessagingPlatform
 import AppTrackingTransparency
@@ -9,12 +10,19 @@ import AppTrackingTransparency
 /// the law requires it, like Europe), then Apple's "Allow tracking?" prompt, then the ads SDK.
 /// This waits until after the player's first game so the first thing they see is the game.
 final class AdsManager: NSObject, FullScreenContentDelegate {
-    /// Google's official TEST ad units. Swap in the real ones from AdMob before release,
-    /// and the app ID in Info.plist (GADApplicationIdentifier).
+    /// Real ad units from Nick's AdMob account (app ID is in Info.plist, GADApplicationIdentifier).
+    /// Only App Store downloads use these. Builds from Xcode and TestFlight use Google's test
+    /// units, so testing can never count as invalid clicks on the real account.
     enum Unit {
-        static let interstitial = "ca-app-pub-3940256099942544/4411468910"
-        static let rewarded = "ca-app-pub-3940256099942544/1712485313"
+        static let rewarded = "ca-app-pub-5409507532746127/6115955318"
+        static let interstitial: String? = nil // TODO: real "Between rounds" ID from AdMob
+
+        static let testRewarded = "ca-app-pub-3940256099942544/1712485313"
+        static let testInterstitial = "ca-app-pub-3940256099942544/4411468910"
     }
+
+    private var rewardedUnit = Unit.testRewarded
+    private var interstitialUnit = Unit.testInterstitial
 
     /// Interstitial pacing: never in a player's first few games, at most every 3rd game over,
     /// and at least 2 minutes apart.
@@ -67,9 +75,30 @@ final class AdsManager: NSObject, FullScreenContentDelegate {
     private func startSDK() {
         guard !sdkReady else { return }
         sdkReady = true
-        MobileAds.shared.start(completionHandler: nil)
-        loadInterstitial()
-        loadRewarded()
+        Task { @MainActor in
+            if await Self.isAppStoreDownload() {
+                rewardedUnit = Unit.rewarded
+                interstitialUnit = Unit.interstitial ?? Unit.testInterstitial
+            }
+            MobileAds.shared.start(completionHandler: nil)
+            loadInterstitial()
+            loadRewarded()
+        }
+    }
+
+    /// True only for copies downloaded from the App Store. Xcode and TestFlight builds are not.
+    private static func isAppStoreDownload() async -> Bool {
+        #if DEBUG
+        return false
+        #else
+        guard let result = try? await AppTransaction.shared else { return false }
+        switch result {
+        case .verified(let transaction):
+            return transaction.environment == .production
+        case .unverified(let transaction, _):
+            return transaction.environment == .production
+        }
+        #endif
     }
 
     // MARK: Interstitial
@@ -93,7 +122,7 @@ final class AdsManager: NSObject, FullScreenContentDelegate {
     }
 
     private func loadInterstitial() {
-        InterstitialAd.load(with: Unit.interstitial, request: Request()) { [weak self] ad, _ in
+        InterstitialAd.load(with: interstitialUnit, request: Request()) { [weak self] ad, _ in
             DispatchQueue.main.async {
                 ad?.fullScreenContentDelegate = self
                 self?.interstitial = ad
@@ -115,7 +144,7 @@ final class AdsManager: NSObject, FullScreenContentDelegate {
     }
 
     private func loadRewarded() {
-        RewardedAd.load(with: Unit.rewarded, request: Request()) { [weak self] ad, _ in
+        RewardedAd.load(with: rewardedUnit, request: Request()) { [weak self] ad, _ in
             DispatchQueue.main.async {
                 ad?.fullScreenContentDelegate = self
                 self?.rewarded = ad

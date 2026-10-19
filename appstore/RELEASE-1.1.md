@@ -1,7 +1,14 @@
 # Version 1.1 setup: ads, Remove Ads, Game Center
 
-The code is on the `release/1.1` branch. Version 1.1, build 2. It uses Google's TEST ad IDs
-until the real ones are swapped in (step 1).
+The code is on the `release/1.1` branch. Version 1.1, build 2.
+
+AdMob IDs in the code:
+- App ID `ca-app-pub-5409507532746127~9875630132` (Info.plist)
+- Rewarded "Smooth a crease" `ca-app-pub-5409507532746127/6115955318`
+- Interstitial "Between rounds": still to add
+
+Only App Store downloads use the real ad units. Builds run from Xcode or installed through
+TestFlight automatically use Google's test ads, so testing never touches the real account.
 
 ## 1. AdMob (Nick)
 1. admob.google.com > Apps > Add app > iOS > not listed yet > name "Paper Plane".
