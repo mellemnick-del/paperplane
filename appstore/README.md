@@ -91,6 +91,12 @@ the page asks for (both are in `appstore/header/`):
 - `header_5244x2950.png`
 - `header_3840x1646.png`
 
+**Search Results** tab (also optional): accepts 5244 x 2950, 3840 x 2560 or 1920 x 1280.
+Use `header_5244x2950.png` or `search_3840x2560.png` / `search_1920x1280.png`.
+
+Download these from GitHub on the Mac (open the file, then the download button) rather than
+passing them through a phone, which can shrink them and cause "File dimensions are invalid".
+
 ## App Privacy
 
 - Privacy Policy URL: `https://mellemnick-del.github.io/paperplane/privacy.html`
