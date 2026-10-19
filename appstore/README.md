@@ -45,7 +45,8 @@ THE DETAILS
 • A hand-drawn notebook world: ruled lines, margin, doodles and coffee rings
 • Wings that crease and bend with every hit
 • Paper crumple sounds and haptics you can feel
-• Your best score saved on your phone
+• Your best score saved on your device
+• Plays great on iPhone and iPad
 
 PICK UP AND PLAY
 No account, no setup, no tutorial to sit through. It works offline, anywhere: on the couch, in line, or in the back of class.
