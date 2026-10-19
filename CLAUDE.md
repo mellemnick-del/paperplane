@@ -48,6 +48,12 @@ or its repo (mellemnick-del/Tick).
   https://mellemnick-del.github.io/paperplane/ (support email nmellemapps@gmail.com).
   Version 1.0 was submitted to App Review on 2026-10-19 with no ads and "Data Not Collected";
   adding ads later means updating the privacy label, PrivacyInfo.xcprivacy and privacy.html.
+- Monetization (version 1.1, branch `release/1.1`, native only, not in the prototype):
+  `Monetization/AdsManager.swift` (Google AdMob interstitial + rewarded, UMP consent, then ATT;
+  starts after the first game), `Store.swift` (StoreKit 2 non-consumable
+  `com.nickmellem.paperplane.removeads`), `GameCenter.swift` (leaderboard `paperplane.best`,
+  access point when not flying). Swift packages: GoogleMobileAds 12.x, UserMessagingPlatform 3.x,
+  linker flag -ObjC. Setup steps for Nick are in `appstore/RELEASE-1.1.md`.
 - Cloud sessions run on Linux without Xcode, so code cannot be compiled there. Say so
   plainly, keep Swift conservative, and ask Nick to build on his Mac after changes.
 

@@ -105,6 +105,14 @@ final class GameEngine {
 
     var onScore: () -> Void = {}
     var onCrumple: () -> Void = {}
+    /// Fires once when a game ends (after the best score is saved).
+    var onGameOver: () -> Void = {}
+
+    /// True once the player has used their one "smooth a crease" continue this game.
+    private(set) var revivedThisGame = false
+
+    /// Game over and the restart guard has passed, so a tap would start a new game.
+    var canRestart: Bool { state == .over && !needRelease && clock - overAt > 0.7 }
 
     init() {
         best = UserDefaults.standard.integer(forKey: Self.bestKey)
@@ -258,6 +266,7 @@ final class GameEngine {
         UserDefaults.standard.set(gamesPlayed, forKey: Self.gamesPlayedKey)
         playTime = 0
         spawnedThisGame = 0
+        revivedThisGame = false
         state = .play
     }
 
@@ -283,6 +292,29 @@ final class GameEngine {
             UserDefaults.standard.set(best, forKey: Self.bestKey)
         }
         needRelease = holding
+        onGameOver()
+    }
+
+    /// "Smooth a crease": bring the plane back after its third crumple with one wing left.
+    /// Allowed once per game. The pencils right around the plane are cleared so it does not
+    /// come back inside one, and it gets a longer blink of safety.
+    func revive() {
+        guard state == .over, !revivedThisGame else { return }
+        revivedThisGame = true
+        plane.hits = Self.lives - 1
+        plane.creases.removeLast(min(3, plane.creases.count))
+        plane.spin = 0
+        plane.angle = 0
+        plane.vy = 0
+        plane.y = H * 0.45
+        plane.inv = 2.0
+        let w = pencilWidth
+        pencils.removeAll { $0.x > plane.x - w * 2 && $0.x < plane.x + H * 0.25 }
+        untilNext = max(untilNext, H * 0.25)
+        lastGapCenter = nil
+        holding = false
+        needRelease = false
+        state = .play
     }
 
     /// Circle vs rectangle.

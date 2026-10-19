@@ -1,11 +1,18 @@
 import SwiftUI
+import StoreKit
 
 struct ContentView: View {
     @State private var game = GameEngine()
     @State private var sound = SoundFX()
     @State private var haptics = Haptics()
+    @State private var ads = AdsManager()
+    @State private var gameCenter = GameCenter()
+    @StateObject private var store = Store()
     @StateObject private var clock = FrameClock()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.requestReview) private var requestReview
+
+    private static let reviewPromptKey = "paperplane.reviewPromptedVersion"
 
     var body: some View {
         // Reading the frame counter makes SwiftUI redraw on every display refresh.
@@ -34,9 +41,24 @@ struct ContentView: View {
         .background(Palette.paper.ignoresSafeArea())
         // Hold anywhere to climb, let go to dive. Covers the whole screen, edges included.
         .overlay(
-            TouchSurface(onDown: { game.press() }, onUp: { game.release() })
+            TouchSurface(onDown: fingerDown, onUp: { game.release() })
                 .ignoresSafeArea()
         )
+        // Buttons sit above the touch layer so tapping them doesn't also start a game.
+        .overlay(
+            MenuButtons(
+                game: game,
+                canContinue: canContinue,
+                adsRemoved: store.adsRemoved,
+                price: store.price,
+                onContinue: smoothACrease,
+                onBuy: { Task { await store.buy() } },
+                onRestore: { Task { await store.restore() } }
+            )
+        )
+        .onChange(of: game.state, initial: true) { _, state in
+            gameCenter.showAccessPoint(state != .play)
+        }
         .statusBarHidden(true)
         // Ask iOS to let the game have the first swipe at the screen edges, so a thumb
         // near the home bar or the top does not get stolen by a system gesture mid-flight.
@@ -63,9 +85,131 @@ struct ContentView: View {
             sound.crumple()
             haptics.crumple()
         }
+        let ads = self.ads
+        let gameCenter = self.gameCenter
+        let requestReview = self.requestReview
+        game.onGameOver = {
+            ads.noteGameOver()
+            ads.startIfNeeded() // consent and tracking prompts wait until after the first game
+            gameCenter.submit(score: game.score)
+            Self.askForReviewIfDue(game: game, requestReview: requestReview)
+        }
         clock.start { time in
             game.step(to: time)
         }
+        gameCenter.authenticate()
+        if game.gamesPlayed > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { ads.startIfNeeded() }
+        }
+    }
+
+    /// A finger came down. After a game over this either starts the next game or, now and
+    /// then, shows an interstitial ad first (the next tap then starts the game).
+    private func fingerDown() {
+        if game.canRestart && ads.shouldShowInterstitial(gamesPlayed: game.gamesPlayed, adsRemoved: store.adsRemoved) {
+            ads.showInterstitial()
+        } else {
+            game.press()
+        }
+    }
+
+    /// The "smooth a crease" continue: once per game, after scoring at least 3.
+    private var canContinue: Bool {
+        game.state == .over && !game.revivedThisGame && game.score >= 3
+            && (store.adsRemoved || ads.rewardedReady)
+    }
+
+    private func smoothACrease() {
+        if store.adsRemoved {
+            game.revive()
+        } else {
+            let game = self.game
+            ads.showRewarded { game.revive() }
+        }
+    }
+
+    /// Apple's rating prompt after a new best, from the 5th game on, once per app version.
+    /// (iOS also limits it to a few times a year on its own.)
+    private static func askForReviewIfDue(game: GameEngine, requestReview: RequestReviewAction) {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1"
+        guard game.newBest, game.gamesPlayed >= 5,
+              UserDefaults.standard.string(forKey: reviewPromptKey) != version else { return }
+        UserDefaults.standard.set(version, forKey: reviewPromptKey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { requestReview() }
+    }
+}
+
+/// Small handwritten buttons: "Remove ads" and "Restore purchase" on the start screen, and on
+/// the game over screen the "smooth a crease" continue plus "Remove ads".
+private struct MenuButtons: View {
+    let game: GameEngine
+    let canContinue: Bool
+    let adsRemoved: Bool
+    let price: String?
+    let onContinue: () -> Void
+    let onBuy: () -> Void
+    let onRestore: () -> Void
+
+    private var k: Double { max(1, game.H / 956) }
+
+    var body: some View {
+        ZStack {
+            if game.state == .ready {
+                HStack(spacing: 16 * k) {
+                    if !adsRemoved { link("Remove ads", action: onBuy) }
+                    link("Restore purchase", action: onRestore)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.leading, 16)
+                .padding(.top, 10)
+            }
+            if game.state == .over {
+                VStack(spacing: 12 * k) {
+                    if canContinue { continueButton }
+                    if !adsRemoved {
+                        link(price.map { "Remove ads (\($0))" } ?? "Remove ads", action: onBuy)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 150 * k)
+            }
+        }
+    }
+
+    private var continueButton: some View {
+        Button(action: onContinue) {
+            VStack(spacing: 2) {
+                HStack(spacing: 8) {
+                    if !adsRemoved { Image(systemName: "play.rectangle") }
+                    Text("Smooth a crease")
+                }
+                .font(.custom(AppFont.marker, fixedSize: 22 * k))
+                .foregroundStyle(Palette.redInk)
+                Text(adsRemoved ? "keep flying with one wing" : "watch a video, keep flying")
+                    .font(.custom(AppFont.hand, fixedSize: 16 * k))
+                    .foregroundStyle(Palette.pencilLead)
+            }
+            .padding(.horizontal, 22 * k)
+            .padding(.vertical, 10 * k)
+            .background(
+                RoundedRectangle(cornerRadius: 14 * k)
+                    .fill(Color.white)
+                    .overlay(RoundedRectangle(cornerRadius: 14 * k).stroke(Palette.graphite, lineWidth: 2 * k))
+            )
+            .rotationEffect(.degrees(-2))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func link(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.custom(AppFont.hand, fixedSize: 17 * k))
+                .foregroundStyle(Palette.pencilLead)
+                .underline()
+                .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
     }
 }
 
