@@ -15,12 +15,8 @@ TestFlight automatically use Google's test ads, so testing never touches the rea
 2. Copy the **App ID** (`ca-app-pub-...~...`).
 3. In that app: Ad units > Add ad unit > **Rewarded**, name "Smooth a crease". Copy its ID.
 4. Add ad unit > **Interstitial**, name "Between rounds". Copy its ID.
-5. Blocking controls > Ad content rating > **G** (done). Keeps ads right for the 4+ rating.
-   Google estimates G earns noticeably less per ad than higher ratings. Revisit after a month
-   of real numbers: PG is the middle step (may mean a 9+ age rating), T would need 13+.
-   **Plan (Nick, 2026-10-19):** move to **T** ads and a **13+** age rating, since kids under 10
-   are unlikely players. Reminder scheduled for 2026-11-16. The age rating change goes in with
-   the next app version; the AdMob setting can change any time.
+5. Blocking controls > Ad content rating > **T (Teens)** (done, 2026-10-19). Higher earnings than
+   G; requires the 13+ App Store age rating below, which ships with 1.1.
 6. Send the three IDs to Claude, who swaps them in:
    - `PaperPlane/Info.plist` > `GADApplicationIdentifier`
    - `PaperPlane/Monetization/AdsManager.swift` > `Unit.interstitial`, `Unit.rewarded`
@@ -62,7 +58,11 @@ requirements" page for AdMob):
 - Usage Data > Product Interaction and Advertising Data: Third-Party Advertising, Analytics.
 - Diagnostics > Crash Data, Performance Data, Other Diagnostic Data: Analytics.
 
-**Age rating:** answer **Yes** to the advertising question. Everything else stays the same.
+**Age rating: 13+ (required, because ads are set to T).** On the 1.1 version, App Information >
+Age Rating > Edit: answer **Yes** to the advertising question, keep the other content answers
+as before, and if the result is lower than 13+, use the **age rating override** to choose
+**13+**. 1.0 stays 4+ (it has no ads). The privacy policy already says the game is not directed
+at children under 13, which matches.
 
 ## 3. Xcode (Nick)
 1. Source Control navigator (Cmd+2) > Branches > Remote > origin > `release/1.1` >

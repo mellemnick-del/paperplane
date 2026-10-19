@@ -54,6 +54,7 @@ or its repo (mellemnick-del/Tick).
   `com.nickmellem.paperplane.removeads`), `GameCenter.swift` (leaderboard `paperplane.best`,
   access point when not flying). Swift packages: GoogleMobileAds 12.x, UserMessagingPlatform 3.x,
   linker flag -ObjC. Setup steps for Nick are in `appstore/RELEASE-1.1.md`.
+  AdMob ad content rating is T (Teens), so 1.1 must ship with a 13+ App Store age rating.
 - Cloud sessions run on Linux without Xcode, so code cannot be compiled there. Say so
   plainly, keep Swift conservative, and ask Nick to build on his Mac after changes.
 
