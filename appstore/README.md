@@ -79,6 +79,7 @@ Two sets, same four scenes, in this order:
 4. `4-endless-pencils.png`
 
 - `appstore/screenshots/iphone/` goes in the **iPhone 6.9" Display** slot (1320 x 2868).
+- `appstore/screenshots/iphone-medium/` goes in the **iPhone with Dynamic Island (medium display)** slot (1206 x 2622), if App Store Connect shows that slot instead.
 - `appstore/screenshots/ipad/` goes in the **iPad 13" Display** slot (2064 x 2752).
 
 Apple scales each set down for the smaller iPhones and iPads, so these two sizes are enough.
