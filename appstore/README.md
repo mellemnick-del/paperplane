@@ -143,5 +143,4 @@ Option A, GitHub Pages (free if the repo is public):
 Option B, if you want to keep the repo private: tell Claude, and it can publish the two
 pages somewhere else and update the URLs here.
 
-Before publishing, replace `nmellemapps@gmail.com` in `docs/support.html` and
-`docs/privacy.html` with the address you want players to use.
+Support email on both pages: `nmellemapps@gmail.com`.
