@@ -124,11 +124,27 @@ will not ask.
 
 ## App Review notes
 
+Paste into App Review Information > Notes on every submission (Apple asked for this on
+2026-10-20 because the developer account is new):
+
 ```
-Paper Plane is a single-screen arcade game. Hold anywhere on the screen to climb, release to dive, and fly through the gaps between pencils. No account or login is needed, and the app collects no data.
+Paper Plane: Notebook Flight is a casual one-finger arcade game for teens and adults who want a quick, simple game to play in short breaks. The player guides a paper airplane across a hand-drawn notebook page by holding anywhere on the screen to climb and releasing to dive, and tries to fly through the gaps between pencils. Each gap cleared is a point. Clipping a pencil crumples one of the plane's three wings; after three crumples the round ends and the player can try to beat their best score.
+
+Instructions: No setup, login, or sample files are needed. Launch the app, then touch and hold anywhere to start. Hold to climb, release to dive. The start screen shows an animated demonstration of the controls, and a player's first three games show short on-screen tips.
+
+Accounts, user-generated content: None.
+
+External services: None in 1.0 (no server, analytics, advertising, authentication, payment processing, or AI services). Best score and games-played count are stored locally on the device.
+
+Regional differences: None. Not offered in European Union storefronts.
+
+Third-party material: All artwork, sounds, and code are original. Fonts: Permanent Marker (Apache License 2.0) and Patrick Hand (SIL Open Font License 1.1), bundled with their licenses.
 ```
 
-Sign-in required: No. Contact info: your name, phone and email (only Apple sees these).
+For 1.1, update "External services" to: Google AdMob (ads, with Google's consent form and
+Apple's App Tracking Transparency prompt), Apple In-App Purchase ("Remove Ads"), and Apple
+Game Center (leaderboard), and mention the "Remove Ads" purchase and the optional rewarded
+video ("Smooth a crease") under paid content.
 
 ## Hosting the privacy and support pages
 
