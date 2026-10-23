@@ -53,12 +53,12 @@ Paper Plane: Notebook Flight, free on the App Store.
 
 Hey! I just launched my first iPhone game, Paper Plane: Notebook Flight. It's free. If you
 have a minute, download it, play a round, and leave a rating. It really helps new games get
-found. Thank you! [App Store link]
+found. Thank you! https://apps.apple.com/app/id6824598323
 
 ## Launch day checklist
 
 1. Release the version in App Store Connect (Pending Developer Release > Release This Version).
-2. Once it shows up in the App Store, copy the link (Share > Copy Link) into the captions above.
+2. App Store link (works once the app is live): https://apps.apple.com/app/id6824598323
 3. Post the launch post with clip 1, then clip 2 and clip 3 over the next few days.
 4. Send the friends and family message.
 5. Ask everyone to rate it in the first week.

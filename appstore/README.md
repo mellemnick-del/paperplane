@@ -11,6 +11,7 @@ Character counts were checked against Apple's limits.
 | Subtitle (30 max) | `Hold to climb. Let go to dive.` (30) |
 | Bundle ID | `com.nickmellem.paperplane` |
 | SKU | `paperplane-ios-001` |
+| Apple ID | `6824598323` (App Store link: https://apps.apple.com/app/id6824598323) |
 | Primary language | English (U.S.) |
 | Category | Games, subcategories Casual and Action (App Store Connect has no Arcade subcategory) |
 | Secondary category | Optional: leave blank or Entertainment |
