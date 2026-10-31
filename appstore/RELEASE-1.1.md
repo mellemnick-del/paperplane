@@ -48,6 +48,7 @@ Also apply for the App Store Small Business Program (15% fee instead of 30%).
   Smooth a crease: after your third crumple, watch a short video to keep flying.
   Game Center leaderboard: see how you stack up.
   New Remove Ads option.
+  The game now pauses when you leave it mid-flight. Tap to keep flying.
   ```
 
 **App Privacy (update before submitting 1.1):** Data collection > **Yes**. For Google AdMob,

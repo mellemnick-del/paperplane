@@ -108,6 +108,16 @@ final class GameEngine {
     /// Fires once when a game ends (after the best score is saved).
     var onGameOver: () -> Void = {}
 
+    /// Frozen mid-flight because the app lost focus (a call, a notification, switching apps).
+    private(set) var paused = false
+
+    /// Freeze the flight; the next tap resumes it.
+    func pause() {
+        guard state == .play else { return }
+        paused = true
+        holding = false
+    }
+
     /// True once the player has used their one "smooth a crease" continue this game.
     private(set) var revivedThisGame = false
 
@@ -185,6 +195,12 @@ final class GameEngine {
     /// Finger down anywhere.
     func press() {
         holding = true
+        if paused {
+            // Back from a pause: the tap resumes the flight, with a short blink of safety.
+            paused = false
+            plane.inv = max(plane.inv, 0.8)
+            return
+        }
         if state == .ready { start(); return }
         if state == .over && !needRelease && clock - overAt > 0.7 { start() }
     }
@@ -267,6 +283,7 @@ final class GameEngine {
         playTime = 0
         spawnedThisGame = 0
         revivedThisGame = false
+        paused = false
         state = .play
     }
 
@@ -327,6 +344,7 @@ final class GameEngine {
     }
 
     private func update(_ dt: Double) {
+        if paused { return }
         let sp = currentSpeed()
 
         if state == .ready {

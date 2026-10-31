@@ -69,6 +69,7 @@ struct ContentView: View {
                 sound.start()
             } else {
                 game.release()
+                game.pause() // freeze mid-flight; "Tap to keep flying" on return
             }
         }
     }
@@ -254,11 +255,13 @@ private struct Caption: View {
     }
 
     private var eyebrow: String {
+        if game.paused { return "Paused" }
         guard game.state == .over else { return " " }
         return game.newBest ? "New best!" : "Crumpled!"
     }
 
     private var line: String? {
+        if game.paused { return nil }
         switch game.state {
         case .ready: return "Hold anywhere to take off"
         case .play: return nil
@@ -269,6 +272,7 @@ private struct Caption: View {
     }
 
     private var hint: String? {
+        if game.paused { return "Tap to keep flying" }
         switch game.state {
         case .ready: return nil
         case .play: return nil
@@ -278,7 +282,7 @@ private struct Caption: View {
 
     /// The prototype's 1.4 s ease-in-out blink down to 35%, only on "Tap to fly again".
     private var hintOpacity: Double {
-        guard game.state == .over, !reduceMotion else { return 1 }
+        guard game.state == .over || game.paused, !reduceMotion else { return 1 }
         let phase = time.truncatingRemainder(dividingBy: 1.4) / 1.4
         let wave = 0.5 - 0.5 * cos(phase * 2 * .pi)   // 0 -> 1 -> 0
         return 1 - 0.65 * wave
